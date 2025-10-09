@@ -1,0 +1,69 @@
+<nav class="main-nav active" data-module="module-dashboard">
+    <button class="nav-button active" data-target="content-geral">Dashboard</button>
+</nav>
+
+<div id="module-dashboard" class="main-module active">
+    <div class="container">
+        <div id="content-geral" class="page active">
+            <div class="kpi-grid">
+                <div class="card kpi-card" data-card-id="kpi_vendas_hoje"><div class="kpi-icon"><i class='bx bxs-dollar-circle'></i></div><div class="kpi-text"><h3>Vendas Hoje</h3><div id="kpi-vendas-hoje" class="value">R$ 0,00</div><div id="kpi-vendas-comp" class="comparison">...</div></div></div>
+                <div class="card kpi-card" data-card-id="kpi_pedidos_hoje"><div class="kpi-icon"><i class='bx bxs-cart'></i></div><div class="kpi-text"><h3>Pedidos Hoje</h3><div id="kpi-pedidos-hoje" class="value">0</div><div id="kpi-pedidos-comp" class="comparison">...</div></div></div>
+                <div class="card kpi-card" data-card-id="kpi_receita_mensal"><div class="kpi-icon"><i class='bx bxs-calendar'></i></div><div class="kpi-text"><h3>Receita Mensal</h3><div id="kpi-receita-mensal" class="value">R$ 0,00</div><div id="kpi-receita-comp" class="comparison">...</div></div></div>
+                <div class="card kpi-card" data-card-id="kpi_lucro_hoje"><div class="kpi-icon"><i class='bx bx-line-chart'></i></div><div class="kpi-text"><h3>Lucro Líquido Hoje</h3><div id="kpi-lucro-hoje" class="value">R$ 0,00</div><div id="kpi-lucro-comp" class="comparison">...</div></div></div>
+                
+                <div class="card kpi-card" data-card-id="kpi_devolucoes_hoje">
+                    <div class="kpi-icon alert">
+                        <i class='bx bx-undo'></i>
+                    </div>
+                    <div class="kpi-text">
+                        <h3>Devoluções Hoje</h3>
+                        <div id="kpi-devolucoes-hoje" class="value">R$ 0,00</div>
+                        <div id="kpi-devolucoes-comp" class="comparison">...</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="metas-progress-grid" id="metas-progress-container">
+            </div>
+
+            <div class="main-grid-overview">
+                <div class="card chart-card-half" data-card-id="chart_monthly_performance">
+                    <h2>Desempenho no Mês</h2>
+                    <div class="chart-wrapper"><canvas id="monthlyPerformanceChart"></canvas></div>
+                </div>
+                <div class="card chart-card-half" data-card-id="chart_top_vendors">
+                    <div class="card-title-wrapper">
+                        <h2 id="top-vendors-title">Top Vendedores (Mês)</h2>
+                        <button id="select-vendors-btn" class="card-header-button" title="Selecionar Vendedores">
+                            <i class='bx bx-slider-alt'></i>
+                        </button>
+                    </div>
+                    <div class="chart-wrapper"><canvas id="topVendorsChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="vendor-select-modal-overlay" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Selecionar Vendedores para o Gráfico</h2>
+            <button id="cancel-vendor-select-btn-close" class="close-button" title="Fechar">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="vendor-controls">
+                <div class="vendor-buttons">
+                    <button type="button" id="modal-vendor-select-all" class="modal-button secondary small">Marcar Todos</button>
+                    <button type="button" id="modal-vendor-deselect-all" class="modal-button secondary small">Desmarcar Todos</button>
+                </div>
+            </div>
+            <div id="modal-vendor-list" class="vendor-list" style="column-count: 2;">
+                </div>
+        </div>
+        <div class="modal-footer">
+            <button id="cancel-vendor-select-btn" class="modal-button secondary">Cancelar</button>
+            <button id="save-vendor-select-btn" class="modal-button primary">Salvar e Atualizar</button>
+        </div>
+    </div>
+</div>

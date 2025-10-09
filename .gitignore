@@ -1,0 +1,7 @@
+# .gitignore
+
+firebase-service-account.json
+agente_config.ini
+config_ai.ini
+__pycache__/
+*.pyc

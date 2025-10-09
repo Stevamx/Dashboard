@@ -1,0 +1,122 @@
+/* /static/css/dashboard-tv.css */
+
+body {
+    background-color: var(--bg);
+    padding: 20px;
+    overflow: hidden;
+    display: block; 
+}
+
+#tv-grid {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    grid-template-rows: repeat(10, 1fr);
+    gap: 20px;
+    width: 100%;
+    height: calc(100vh - 40px);
+}
+
+.card {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; 
+}
+
+.card .chart-wrapper {
+    flex-grow: 1;
+    position: relative;
+    min-height: 0; 
+}
+
+.card.size-small {
+    grid-column: span 3;
+    grid-row: span 2;
+}
+.card.size-medium {
+    grid-column: span 6;
+    grid-row: span 5;
+}
+.card.size-large {
+    grid-column: span 12;
+    grid-row: span 8;
+}
+
+.card.fit-content-card {
+    grid-row: auto;
+    align-self: start;
+}
+
+#tv-grid .card.fit-content-card {
+    background-color: transparent;
+    border: none;
+    padding: 0;
+    box-shadow: none;
+}
+
+#tv-grid .kpi-card {
+    flex-direction: row;
+    align-items: center;
+    padding: 15px;
+    gap: 15px;
+}
+
+#tv-grid .kpi-icon {
+    width: 48px;
+    height: 48px;
+}
+
+#tv-grid .kpi-icon i {
+    font-size: 24px;
+}
+
+#tv-grid .kpi-text h3 {
+    font-size: 15px;
+    margin-bottom: 0;
+}
+
+#tv-grid .kpi-text .value {
+    font-size: clamp(24px, 2.2vw, 30px);
+    line-height: 1.1;
+    margin: 4px 0;
+}
+
+#tv-grid .kpi-text .comparison {
+    display: none;
+}
+
+.tv-metas-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 25px;
+    padding-top: 0;
+    overflow-y: auto;
+}
+
+.tv-empty-message {
+    text-align: center;
+    color: var(--muted);
+    font-size: 1.2rem;
+    margin-top: 3rem;
+    grid-column: 1 / -1;
+}
+
+/* --- ALTERAÇÃO APLICADA AQUI --- */
+#tv-footer-info {
+    position: fixed;
+    bottom: 10px;
+    right: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 500;
+    opacity: 0.7;
+    background-color: var(--bg);
+    padding: 5px 10px;
+    border-radius: 6px;
+}
+
+#tv-footer-info i {
+    font-size: 18px;
+}

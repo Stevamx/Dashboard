@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+    <title>Dashboard de Vendas</title>
+    <link rel="stylesheet" href="/static/css/base.css?v=1.1">
+    <link rel="stylesheet" href="/static/css/dashboard_layout.css?v=1.1">
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+</head>
+<body>
+
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <i class='bx bxs-bar-chart-alt-2'></i>
+            </div>
+            <span class="logo-text">Análises</span>
+            <div id="sidebar-company-name" class="sidebar-company">Carregando...</div>
+        </div>
+        <div class="sidebar-main">
+            <a href="#" class="sidebar-link active" data-module="geral" data-access-key="dashboard" title="Dashboard">
+                <i class='bx bxs-dashboard'></i>
+                <span class="link-text">Dashboard</span>
+            </a>
+            <a href="#" class="sidebar-link" data-module="vendas" data-access-key="vendas" title="Vendas">
+                <i class='bx bxs-cart'></i>
+                <span class="link-text">Vendas</span>
+            </a>
+            <a href="#" class="sidebar-link" data-module="estoque" data-access-key="estoque" title="Estoque">
+                <i class='bx bxs-package'></i>
+                <span class="link-text">Estoque</span>
+            </a>
+            <a href="#" class="sidebar-link" data-module="metas" data-access-key="metas" title="Metas">
+                <i class='bx bx-target-lock'></i>
+                <span class="link-text">Metas</span>
+            </a>
+             <hr class="sidebar-divider">
+            <a href="/chat" class="sidebar-link-external" data-access-key="chat" title="Chat LUCA">
+                <i class='bx bxs-bot'></i>
+                <span class="link-text">Chat LUCA</span>
+            </a>
+            <a href="#" id="sidebar-tv-mode-btn" class="sidebar-link-external" data-access-key="dashboard" title="Modo TV">
+                <i class='bx bx-tv'></i>
+                <span class="link-text">Modo TV</span>
+            </a>
+        </div>
+        <div class="sidebar-bottom">
+            <a href="#" id="change-company-btn" class="sidebar-link" title="Alterar Empresa" style="display: none;">
+                <i class='bx bx-transfer'></i>
+                <span class="link-text">Alterar Empresa</span>
+            </a>
+            <a href="#" id="logout-btn" class="sidebar-link" title="Sair">
+                <i class='bx bx-log-out'></i>
+                <span class="link-text">Sair</span>
+            </a>
+        </div>
+    </aside>
+    
+    <div class="sidebar-overlay"></div>
+
+    <main class="main-content">
+        <header class="main-header">
+            <button id="sidebar-toggle-btn" class="header-button" title="Abrir/Fechar Menu">
+                <i class='bx bx-menu'></i>
+            </button>
+            <div id="nav-placeholder"></div>
+            <button id="open-tv-settings-btn" class="header-button" title="Configurar Modo TV">
+                <i class='bx bx-tv'></i>
+            </button>
+        </header>
+        
+        <div id="content-placeholder"></div>
+        <div id="modals-placeholder"></div>
+
+    </main>
+    
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="spinner"></div>
+    </div>
+    
+    <div id="notification-modal-overlay" class="modal-overlay"> </div>
+
+    <div id="logout-confirmation-modal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 450px;">
+            <div class="modal-header">
+                <h2>O que você deseja fazer?</h2>
+                <button id="logout-modal-close-btn" class="close-button" title="Fechar">&times;</button>
+            </div>
+            <div class="modal-body" style="gap: 1rem;">
+                <button id="logout-modal-switch-panel-btn" class="modal-button secondary" style="width: 100%; justify-content: center; padding: 12px; font-size: 16px; gap: 8px;">
+                    <i class='bx bx-grid-alt' style="font-size: 20px;"></i>
+                    <span>Voltar para Seleção de Painel</span>
+                </button>
+                <button id="logout-modal-confirm-btn" class="modal-button danger" style="width: 100%; justify-content: center; padding: 12px; font-size: 16px; gap: 8px;">
+                    <i class='bx bx-log-out-circle' style="font-size: 20px;"></i>
+                    <span>Sair da Conta</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="tv-settings-modal-overlay" class="modal-overlay">
+        <div class="modal-content large" style="max-width: 1200px;">
+            <div class="modal-header">
+                <h2>Configurar Layout do Modo TV</h2>
+                <button id="close-tv-settings-btn" class="close-button">&times;</button>
+            </div>
+            <div class="modal-body tv-settings-body">
+                <div class="tv-settings-sidebar">
+                    <h3>Cards Disponíveis</h3>
+                    <div id="available-cards-list"></div>
+                    
+                    <div class="form-group" style="margin-top: 2rem; border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
+                        <label for="tv-refresh-interval" style="font-weight: 600; color: var(--ink);">Atualizar a cada (minutos)</label>
+                        <input type="number" id="tv-refresh-interval" class="form-control" value="5" min="1">
+                        <p class="form-hint" style="margin-top: 5px; font-size: 13px;">Define o intervalo em minutos para a atualização automática dos dados.</p>
+                    </div>
+                </div>
+                <div class="tv-settings-preview">
+                    <h3>Pré-visualização da TV</h3>
+                    <div id="tv-preview-grid" class="tv-preview-grid"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="cancel-tv-settings-btn" class="modal-button secondary">Cancelar</button>
+                <button id="save-tv-settings-btn" class="modal-button primary">Salvar e Iniciar TV</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="all-companies-modal-overlay" class="modal-overlay">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h2>Selecionar Empresa</h2>
+                <button id="close-all-companies-modal-btn" class="close-button" title="Fechar">&times;</button>
+            </div>
+            <div class="modal-body" style="padding-top: 15px;">
+                <div class="card-list-filter" style="margin-top: 0;">
+                    <i class='bx bx-search'></i>
+                    <input type="text" id="all-companies-search" class="form-control" placeholder="Pesquisar empresa por nome ou CNPJ...">
+                </div>
+                <div id="all-companies-list" class="product-list-container" style="max-height: 60vh; margin-top: 15px;">
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script>
+        const firebaseConfig = {
+          apiKey: "AIzaSyCOw1fbiRvQiKbZS5nlqZCn7uDexVdC3fA",
+          authDomain: "dashboard-e66b8.firebaseapp.com",
+          databaseURL: "https://dashboard-e66b8-default-rtdb.firebaseio.com",
+          projectId: "dashboard-e66b8",
+          storageBucket: "dashboard-e66b8.appspot.com",
+          messagingSenderId: "446228069452",
+          appId: "1:446228069452:web:59e214f01a0ae1afb488e9",
+          measurementId: "G-0JVJ813XZQ"
+        };
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+    </script>
+
+    <script src="/static/js/global.js?v=1.1" defer></script>
+    <script src="/static/js/dashboard-utils.js?v=1.1" defer></script>
+    <script src="/static/js/dashboard-tv-settings.js?v=1.0" defer></script>
+    <script src="/static/js/dashboard-loader.js?v=1.1" defer></script>
+    
+</body>
+</html>

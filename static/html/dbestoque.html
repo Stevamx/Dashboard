@@ -1,0 +1,131 @@
+<nav class="main-nav active" data-module="module-estoque">
+    <button class="nav-button active" data-target="content-estoque-geral">Visão Geral</button>
+    <button class="nav-button" data-target="content-estoque-produtos">Produtos</button>
+</nav>
+
+<div id="module-estoque" class="main-module active">
+    <div id="content-estoque-geral" class="page active">
+        <div class="container">
+            <div class="page-header">
+                <h2>Visão Geral do Estoque</h2>
+                <button id="stock-filter-btn" class="action-button" title="Filtrar Período"><i class='bx bx-filter-alt'></i> Filtrar</button>
+            </div>
+            <div class="control-panel-grid">
+                <div class="card kpi-card" data-card-id="stock_kpi_total_value">
+                    <div class="kpi-icon"><i class='bx bxs-dollar-circle'></i></div><div class="kpi-text">
+                        <h3>Estoque</h3>
+                        <div id="kpi-stock-total-value" class="value">R$ 0,00</div>
+                    </div>
+                </div>
+            </div>
+             <div class="main-grid-overview">
+                <div class="card chart-card-half" data-card-id="chart_stock_abc_analysis">
+                    <div class="card-title-wrapper">
+                        <h2>Análise de Curva ABC</h2>
+                        <div class="info-tooltip-container">
+                            <i class='bx bx-info-circle'></i>
+                            <div class="info-tooltip">A Curva ABC classifica os itens do estoque por importância. Curva A: poucos itens de alto valor (aprox. 80% do total). Curva B: itens de valor intermediário. Curva C: muitos itens de baixo valor.</div>
+                        </div>
+                    </div>
+                    <div class="chart-wrapper"><canvas id="stockAbcChart"></canvas></div>
+                </div>
+                <div class="card chart-card-half" data-card-id="chart_top_products_stock_value">
+                    <h2>Top 10 Produtos por Valor em Estoque</h2>
+                    <div class="chart-wrapper"><canvas id="topProductsStockChart"></canvas></div>
+                </div>
+                <div class="card full-width-card" data-card-id="chart_stock_value_history">
+                    <div class="card-title-wrapper">
+                        <h2>Histórico do Valor do Estoque</h2>
+                        <form id="stock-history-year-form" class="card-header-form">
+                            <input type="number" id="stock-history-year-input" class="card-header-input" placeholder="Ano">
+                            <button type="submit" class="card-header-button small">OK</button>
+                        </form>
+                    </div>
+                    <div class="chart-wrapper"><canvas id="stockValueHistoryChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="content-estoque-produtos" class="page">
+        <div class="container">
+            <div class="page-header">
+                <h2>Análise de Produtos</h2>
+            </div>
+            <div class="main-grid">
+                <div class="card chart-card-half" data-card-id="list_low_stock">
+                    <div class="card-title-wrapper">
+                        <h2>Produtos com Estoque Baixo</h2>
+                        <div id="low-stock-count" class="card-header-value">0 Itens</div>
+                    </div>
+                    <div class="card-list-filter">
+                        <i class='bx bx-search'></i>
+                        <input type="text" id="low-stock-search" placeholder="Pesquisar na lista...">
+                    </div>
+                    <div class="product-list-container" id="low-stock-list-container">
+                    </div>
+                </div>
+                <div class="card chart-card-half" data-card-id="list_idle_products">
+                     <div class="card-title-wrapper">
+                        <h2 id="idle-products-title">Produtos Parados</h2>
+                        <button id="idle-products-filter-btn" class="card-header-button" title="Filtrar dias sem giro"><i class='bx bx-filter-alt'></i></button>
+                    </div>
+                    <div class="card-list-filter">
+                        <i class='bx bx-search'></i>
+                        <input type="text" id="idle-products-search" placeholder="Pesquisar na lista...">
+                    </div>
+                    <div class="product-list-container" id="idle-products-list-container">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="stock-filter-modal-overlay" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header"><h2>Filtrar Dados de Estoque</h2></div>
+        <div class="modal-body">
+            <div class="form-section">
+                <h3>Períodos Rápidos:</h3>
+                <div class="preset-buttons">
+                    <button class="modal-button secondary stock-preset-date-btn" data-range="week">Esta Semana</button>
+                    <button class="modal-button secondary stock-preset-date-btn" data-range="month">Este Mês</button>
+                    <button class="modal-button secondary stock-preset-date-btn" data-range="year">Este Ano</button>
+                </div>
+            </div>
+            <div class="form-section">
+                <h3>Período Específico:</h3>
+                <div class="date-inputs">
+                    <div class="form-group">
+                        <label for="stock-start-date">Data Inicial</label>
+                        <input type="date" id="stock-start-date">
+                    </div>
+                    <div class="form-group">
+                        <label for="stock-end-date">Data Final</label>
+                        <input type="date" id="stock-end-date">
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button id="cancel-stock-filter-btn" class="modal-button secondary">Cancelar</button>
+            <button id="apply-stock-filter-btn" class="modal-button primary">Aplicar Filtros</button>
+        </div>
+    </div>
+</div>
+
+<div id="idle-filter-modal-overlay" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header"><h2>Filtrar Produtos Parados</h2></div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="idle-days-input">Mostrar produtos sem movimentação há quantos dias?</label>
+                <input type="number" id="idle-days-input" value="90" min="1">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button id="cancel-idle-filter-btn" class="modal-button secondary">Cancelar</button>
+            <button id="apply-idle-filter-btn" class="modal-button primary">Aplicar Filtro</button>
+        </div>
+    </div>
+</div>

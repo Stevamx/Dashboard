@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Configurações</title>
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <link rel="stylesheet" href="/static/css/base.css?v=1.1">
+    <link rel="stylesheet" href="/static/css/dashboard_layout.css?v=1.1">
+    <link rel="stylesheet" href="/static/css/configuracoes.css?v=1.2">
+</head>
+<body>
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="spinner"></div>
+    </div>
+
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo"><i class='bx bxs-cog'></i></div>
+            <span class="logo-text">Ajustes</span>
+        </div>
+        <div class="sidebar-main">
+            <a href="/dashboard-web" class="sidebar-link-external" title="Voltar ao Painel Principal">
+                <i class='bx bxs-dashboard'></i><span class="link-text">Painel Principal</span>
+            </a>
+            <hr class="sidebar-divider">
+            <a href="#" class="sidebar-link active" data-target="content-admin-users" title="Usuários">
+               <i class='bx bxs-user-account'></i><span class="link-text">Usuários</span>
+            </a>
+            <a href="#" class="sidebar-link" data-target="content-admin-ai" title="Agente IA">
+                <i class='bx bxs-bot'></i><span class="link-text">Agente IA</span>
+            </a>
+        </div>
+        <div class="sidebar-bottom">
+            <a href="#" id="logout-btn" class="sidebar-link" title="Sair">
+                <i class='bx bx-log-out'></i>
+                <span class="link-text">Sair</span>
+            </a>
+        </div>
+    </aside>
+    <div class="sidebar-overlay"></div>
+
+    <main class="main-content">
+        <header class="main-header">
+            <button class="header-button" id="sidebar-toggle-btn"><i class='bx bx-menu'></i></button>
+            <nav class="main-nav">
+                <button class="nav-button active" data-target="content-admin-users">Usuários</button>
+                <button class="nav-button" data-target="content-admin-ai">Agente IA</button>
+            </nav>
+        </header>
+        
+        <div class="container">
+            <div class="page active" id="content-admin-users">
+                <div class="page-header">
+                    <h2>Gerenciamento de Usuários</h2>
+                    <button id="add-user-btn" class="action-button primary"><i class='bx bx-plus'></i> Adicionar Usuário</button>
+                </div>
+                <div class="card full-width-card">
+                    <div class="ranking-table-container">
+                        <table id="users-table" class="ranking-table">
+                            <thead>
+                                <tr>
+                                    <th>Nome</th>
+                                    <th>E-mail</th>
+                                    <th>Permissão</th>
+                                    <th style="text-align: right;">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="page" id="content-admin-ai">
+                <div class="page-header">
+                    <h2>Configurações do Agente IA</h2>
+                </div>
+                <div class="card full-width-card">
+                    <form id="ai-settings-form">
+                        <div class="form-group">
+                            <label for="ai-prompt">Prompt do Sistema</label>
+                            <p class="form-hint">Instruções que definem o comportamento do seu assistente de IA.</p>
+                            <textarea id="ai-prompt" class="form-control" rows="8" placeholder="Ex: Você é um assistente especialista em análise de vendas..."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="gemini-api-key">Gemini API Key</label>
+                            <p class="form-hint">Sua chave de API para habilitar o Agente IA.</p>
+                            <input type="password" id="gemini-api-key" class="form-control" placeholder="Cole sua API Key aqui">
+                        </div>
+                        <div class="form-footer">
+                             <div id="ai-form-message" class="form-message"></div>
+                            <button type="submit" class="action-button primary"><i class='bx bx-save'></i> Salvar Alterações</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="notification-modal-overlay" class="modal-overlay">
+        <div class="modal-content">
+            <div class="notification-header">
+                <div id="notification-icon" class="notification-icon"><i class='bx bx-info-circle'></i></div>
+                <h3 id="notification-title">Título da Notificação</h3>
+            </div>
+            <div id="notification-message" class="notification-body">Mensagem de exemplo.</div>
+            <div class="notification-footer">
+                <button id="notification-close-btn" class="modal-button primary">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="confirmation-modal-overlay" class="modal-overlay">
+        <div class="modal-content" style="max-width: 450px;">
+            <div class="modal-header">
+                <h2 id="confirmation-title">Confirmar Ação</h2>
+            </div>
+            <div class="modal-body">
+                <p id="confirmation-message" style="line-height: 1.6; font-size: 16px; color: var(--ink);">Você tem certeza que deseja continuar?</p>
+            </div>
+            <div class="modal-footer">
+                <button id="confirmation-cancel-btn" class="modal-button secondary">Cancelar</button>
+                <button id="confirmation-confirm-btn" class="modal-button danger">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="user-modal-overlay" class="modal-overlay">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h2>Adicionar Novo Usuário</h2>
+                <button id="close-user-modal-btn" class="close-button" title="Fechar">&times;</button>
+            </div>
+            <form id="add-user-form" class="modal-body" novalidate>
+                <div class="form-group">
+                    <label for="username">Nome Completo</label>
+                    <input type="text" id="username" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="email">E-mail</label>
+                    <input type="email" id="email" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Senha</label>
+                    <input type="password" id="password" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="role">Tipo de Permissão</label>
+                    <select id="role" class="form-control">
+                        <option value="usuario">Usuário Padrão</option>
+                        <option value="admin">Administrador</option>
+                    </select>
+                </div>
+                <div id="add-access-groups" class="access-group-container"></div>
+            </form>
+            <div class="modal-footer">
+                <button id="cancel-user-modal-btn" class="modal-button secondary">Cancelar</button>
+                <button type="submit" form="add-user-form" class="modal-button primary">Criar Usuário</button>
+            </div>
+        </div>
+    </div>
+    <div id="edit-user-modal-overlay" class="modal-overlay">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h2>Editar Usuário</h2>
+                <button id="close-edit-modal-btn" class="close-button" title="Fechar">&times;</button>
+            </div>
+            <form id="edit-user-form" class="modal-body" novalidate>
+                <input type="hidden" id="edit-user-uid">
+                <div class="form-group">
+                    <label for="edit-username">Nome Completo</label>
+                    <input type="text" id="edit-username" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit-email">E-mail (não pode ser alterado)</label>
+                    <input type="email" id="edit-email" class="form-control" disabled>
+                </div>
+                <div class="form-group">
+                    <label for="edit-role">Tipo de Permissão</label>
+                    <select id="edit-role" class="form-control">
+                        <option value="usuario">Usuário Padrão</option>
+                        <option value="admin">Administrador</option>
+                    </select>
+                </div>
+                <div id="edit-access-groups" class="access-group-container"></div>
+            </form>
+            <div class="modal-footer">
+                <button id="cancel-edit-modal-btn" class="modal-button secondary">Cancelar</button>
+                <button type="submit" form="edit-user-form" class="modal-button primary">Salvar Alterações</button>
+            </div>
+        </div>
+    </div>
+    <div id="logout-confirmation-modal" class="modal-overlay"></div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="/static/js/global.js?v=1.1"></script>
+    <script src="/static/js/configuracoes.js?v=1.2"></script> 
+</body>
+</html>

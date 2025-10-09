@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="pt-br" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+    <title>Dashboard - Modo TV</title>
+    <link rel="stylesheet" href="/static/css/base.css?v=1.1">
+    <link rel="stylesheet" href="/static/css/dashboard_layout.css?v=1.1">
+    <link rel="stylesheet" href="/static/css/dashboard-tv.css?v=1.2">
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div id="tv-grid">
+    </div>
+
+    <div id="tv-footer-info">
+        <i class='bx bx-time'></i>
+        <span>Atualizando a cada <span id="tv-refresh-time">5</span> minutos...</span>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="/static/js/global.js?v=1.1"></script>
+    <script src="/static/js/dashboard-utils.js?v=1.1"></script>
+    <script src="/static/js/dashboard-tv.js?v=1.1"></script>
+</body>
+</html>

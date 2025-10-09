@@ -1,0 +1,63 @@
+<div id="module-metas" class="main-module active">
+    <div class="container">
+        <div class="page active" id="content-metas">
+            <div class="page-header">
+                <h2>Metas Definidas</h2>
+                <button id="open-meta-modal-btn" class="action-button primary"><i class='bx bx-plus'></i> Nova Meta</button>
+            </div>
+
+            <div class="card full-width-card">
+                <div class="metas-table-container">
+                    <table class="ranking-table">
+                        <thead>
+                            <tr>
+                                <th>Indicador</th>
+                                <th>Período</th>
+                                <th>Valor</th>
+                                <th style="text-align: right;">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="metas-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="meta-modal-overlay" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="modal-title">Definir Nova Meta</h2>
+            <button class="close-button" id="cancel-edit-btn-close" title="Fechar">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="meta-form">
+                <div class="form-grid">
+                    <div class="form-group full-width">
+                        <label for="indicador">Indicador</label>
+                        <select id="indicador" class="form-control" required>
+                            <option value="FATURAMENTO_MENSAL">Faturamento Mensal (Vendas)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="mes">Mês</label>
+                        <select id="mes" class="form-control" required></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="ano">Ano</label>
+                        <input type="number" id="ano" class="form-control" required>
+                    </div>
+                    <div class="form-group full-width">
+                        <label for="valor">Valor da Meta</label>
+                        <input type="text" id="valor" class="form-control" required placeholder="R$ 0,00">
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button id="cancel-edit-btn" class="modal-button secondary">Cancelar</button>
+            <button id="save-meta-btn" class="modal-button primary">Salvar Meta</button>
+        </div>
+    </div>
+</div>

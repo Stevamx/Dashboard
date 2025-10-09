@@ -1,0 +1,394 @@
+/* static/css/style-login.css */
+
+/* Geral e Variáveis */
+:root {
+    --brand: #0042F0; 
+    --brand-dark: #002db3;
+    --bg: #E3E6EF;
+    --card: #FFFFFF;
+    --ink: #1F2937;
+    --muted: #6B7280;
+    --danger-color: #DC3545;
+    --border-color: #DDE1E8;
+    --shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    --brand-bg-light: rgba(0, 66, 240, 0.1);
+    --border-radius: 12px;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Poppins', sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* --- TELA DE LOGIN --- */
+.login-body {
+    color: var(--muted);
+    background-color: var(--bg);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+
+.login-container {
+    width: 100%;
+    max-width: 450px; 
+    padding: 2rem;
+    transition: opacity 0.4s ease-out, transform 0.4s ease-out;
+}
+
+.login-card {
+    background-color: var(--card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: 2.5rem;
+    box-shadow: var(--shadow);
+    text-align: center;
+    animation: fadeIn 0.8s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeOut {
+    from { opacity: 1; transform: scale(1); }
+    to { opacity: 0; transform: scale(0.95); }
+}
+
+.login-container.fade-out {
+    animation: fadeOut 0.4s ease-out forwards;
+}
+
+.login-header {
+    margin-bottom: 2rem;
+}
+
+.login-header .icon {
+    font-size: 2.5rem;
+    color: var(--brand);
+    margin-bottom: 1rem;
+}
+
+.login-header h2 {
+    color: var(--ink);
+    font-size: 1.8rem;
+    margin: 0;
+}
+
+.login-header p {
+    color: var(--muted);
+    font-size: 1rem;
+}
+
+#login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.input-group {
+    position: relative;
+}
+
+.input-group .icon {
+    position: absolute;
+    left: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+    transition: color 0.2s;
+    font-size: 1.2rem;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 0.8rem 1rem 0.8rem 3rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: #F8FAFC;
+    color: var(--ink);
+    font-size: 1rem;
+    font-family: 'Poppins', sans-serif;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.input-group input:focus {
+    outline: none;
+    border-color: var(--brand);
+    box-shadow: 0 0 0 3px rgba(0, 66, 240, 0.15);
+}
+
+.input-group input:focus ~ .icon {
+    color: var(--brand);
+}
+
+.btn {
+    padding: 0.8rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 1rem;
+    transition: all 0.2s ease-in-out;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    text-decoration: none;
+}
+
+.btn-primary {
+    background: var(--brand);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: var(--brand-dark);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0, 66, 240, 0.2);
+}
+
+#error-message {
+    color: var(--danger-color);
+    margin-top: 1.5rem;
+    height: 1rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    display: block;
+    visibility: hidden;
+}
+#error-message.visible {
+    visibility: visible;
+}
+
+/* --- ESTILOS PARA O MODAL DE SELEÇÃO DE PAINEL --- */
+@keyframes slideInUp {
+    from { transform: translateY(30px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.panel-selection-modal {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1000;
+    background-color: var(--bg);
+    padding: 2rem;
+}
+
+.panel-selection-modal.visible {
+    display: flex;
+    animation: fadeIn 0.5s ease-out;
+}
+
+.panel-selection-modal-content {
+    background-color: transparent;
+    text-align: center;
+    width: 100%;
+    max-width: 900px;
+    animation: slideInUp 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.panel-selection-modal-content .header {
+    margin-bottom: 3rem;
+}
+
+.panel-selection-modal-content .header h2 {
+    color: var(--ink);
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.panel-selection-modal-content .header p {
+    font-size: 1.1rem;
+    color: var(--muted);
+}
+
+.company-info {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background-color: var(--brand-bg-light);
+    color: var(--brand);
+    padding: 10px 20px;
+    border-radius: 999px;
+    font-weight: 500;
+    margin: 1rem auto 0;
+    max-width: 90%;
+    font-size: 0.95rem;
+}
+.company-info i {
+    font-size: 1.2rem;
+}
+
+.panel-links {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+    width: 100%;
+}
+
+.panel-card {
+    background-color: var(--card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: 2rem;
+    text-decoration: none;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    text-align: left;
+    transition: transform 0.3s ease, background-color 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.panel-card:hover {
+    transform: translateY(-5px);
+    background-color: var(--brand-bg-light);
+    border-color: var(--brand);
+    box-shadow: 0 8px 25px rgba(0, 66, 240, 0.1);
+}
+
+.panel-card .panel-icon {
+    font-size: 2.5rem;
+    color: var(--brand);
+    flex-shrink: 0;
+}
+
+.panel-card .panel-info h3 {
+    color: var(--ink);
+    font-size: 1.3rem;
+    margin-bottom: 0.25rem;
+}
+
+.panel-card .panel-info p {
+    font-size: 0.95rem;
+    line-height: 1.6;
+}
+
+.panel-card .panel-arrow {
+    margin-left: auto;
+    font-size: 1.5rem;
+    color: var(--muted);
+    transition: color 0.3s ease, transform 0.3s ease;
+}
+
+.panel-card:hover .panel-arrow {
+    color: var(--brand);
+    transform: translateX(5px);
+}
+
+.action-links {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    margin-top: 3rem;
+}
+
+.action-link {
+    font-size: 1rem;
+    color: var(--muted);
+    text-decoration: none;
+    transition: color 0.2s;
+    font-weight: 500;
+}
+
+/* ### CORREÇÃO APLICADA AQUI ### */
+.action-link:hover {
+    color: var(--ink);
+    text-decoration: underline;
+}
+/* ### ESTILOS ADICIONADOS PARA O MODAL DE ALTERAR SENHA ### */
+.form-group {
+    text-align: left;
+    width: 100%;
+    margin-bottom: 1rem;
+}
+.form-group:last-child {
+    margin-bottom: 0;
+}
+.form-group label {
+    display: block;
+    font-size: 14px;
+    margin-bottom: 8px;
+    color: var(--muted);
+    font-weight: 500;
+}
+.form-control {
+    width: 100%;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background-color: var(--bg);
+    color: var(--ink);
+    font-family: 'Poppins', sans-serif;
+    font-size: 15px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.form-control:focus {
+    outline: none;
+    border-color: var(--brand);
+    box-shadow: 0 0 0 3px var(--brand-bg-light);
+}
+
+
+/* --- SEÇÃO DE RESPONSIVIDADE --- */
+@media (min-width: 768px) {
+    .panel-links {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .panel-links a:last-child:nth-child(odd) {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 767px) {
+    .login-container, .panel-selection-modal {
+        padding: 1rem;
+    }
+    .login-card, .panel-selection-modal-content {
+        padding: 2rem 1.5rem;
+    }
+    .login-header h2 {
+        font-size: 1.6rem;
+    }
+    .panel-selection-modal-content .header h2 {
+        font-size: 1.8rem;
+    }
+    .panel-selection-modal-content .header p {
+        font-size: 1rem;
+    }
+    .panel-card {
+        gap: 1rem;
+        padding: 1.5rem;
+    }
+    .panel-card .panel-icon {
+        font-size: 2rem;
+    }
+    .panel-card .panel-info h3 {
+        font-size: 1.1rem;
+    }
+    .panel-card .panel-info p {
+        font-size: 0.9rem;
+    }
+    .panel-selection-modal {
+        align-items: flex-start;
+        overflow-y: auto;
+        padding-top: 3rem;
+        padding-bottom: 3rem;
+    }
+}

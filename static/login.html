@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Acesso Restrito</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <link rel="stylesheet" href="/static/css/base.css?v=1.1">
+    <link rel="stylesheet" href="/static/css/style-login.css?v=1.5">
+</head>
+<body class="login-body">
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="spinner"></div>
+    </div>
+    
+    <div id="notification-modal-overlay" class="modal-overlay">
+        <div class="modal-content">
+            <div class="notification-header">
+                <div id="notification-icon" class="notification-icon"><i class='bx bx-info-circle'></i></div>
+                <h3 id="notification-title">Título da Notificação</h3>
+            </div>
+            <div id="notification-message" class="notification-body">Mensagem de exemplo.</div>
+            <div class="notification-footer">
+                <button id="notification-close-btn" class="modal-button primary">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="select-company-input-modal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 450px;">
+            <div class="modal-header">
+                <h2>Acesso de Suporte</h2>
+            </div>
+            <div class="modal-body">
+                <p style="text-align: center; margin-bottom: 1rem; line-height: 1.6;">Por favor, insira o CNPJ ou CPF da empresa que deseja acessar.</p>
+                <div class="form-group">
+                    <label for="company-id-input" style="display:none;">CNPJ/CPF</label>
+                    <input type="text" id="company-id-input" class="form-control" placeholder="Digite apenas os números">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="cancel-select-company-btn" class="modal-button secondary">Sair</button>
+                <button id="confirm-select-company-btn" class="modal-button primary">Acessar</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <i class='bx bxs-widget icon'></i> <h2>Acesso Restrito</h2>
+                <p>Faça login para continuar</p>
+            </div>
+            <form id="login-form">
+                <div class="input-group">
+                    <input type="email" id="email" name="email" placeholder="Seu e-mail" required>
+                    <i class='bx bx-envelope icon'></i> </div>
+                <div class="input-group">
+                    <input type="password" id="password" name="password" placeholder="Sua senha" required>
+                    <i class='bx bx-lock-alt icon'></i> </div>
+                <button type="submit" class="btn btn-primary">
+                    <span>Entrar</span>
+                    <i class='bx bx-right-arrow-alt'></i> </button>
+            </form>
+            <p id="error-message"></p>
+        </div>
+    </div>
+
+    <div id="company-selection-modal" class="panel-selection-modal">
+        <div class="panel-selection-modal-content">
+            <div class="header">
+                <h2 id="company-modal-welcome-message">Selecione uma Empresa</h2>
+                <p>Você tem acesso a múltiplas empresas. Por favor, escolha uma para continuar.</p>
+            </div>
+            <div id="modal-company-links" class="panel-links"></div>
+            <div class="action-links">
+                <a href="#" id="company-selection-logout-link" class="action-link">Sair da conta</a>
+            </div>
+        </div>
+    </div>
+
+    <div id="panel-selection-modal" class="panel-selection-modal">
+        <div class="panel-selection-modal-content">
+            <div class="header">
+                <h2 id="modal-welcome-message">Bem-vindo!</h2>
+                <div id="modal-company-info" class="company-info"></div>
+                <p>Selecione um painel para continuar.</p>
+            </div>
+            <div id="modal-panel-links" class="panel-links"></div>
+            <div class="action-links">
+                <a href="#" id="change-company-link" class="action-link" style="display: none;">Alterar empresa</a>
+                <a href="#" id="reset-password-link" class="action-link">Alterar senha</a>
+                <a href="#" id="logout-link" class="action-link">Sair da conta</a>
+            </div>
+        </div>
+    </div>
+
+    <div id="change-password-modal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 450px;">
+            <div class="modal-header">
+                <h2>Alterar Senha</h2>
+                <button id="close-password-modal-btn" class="close-button" title="Fechar">&times;</button>
+            </div>
+            <form id="change-password-form" class="modal-body" novalidate>
+                <div class="form-group">
+                    <label for="new-password">Nova Senha</label>
+                    <input type="password" id="new-password" class="form-control" required minlength="6" placeholder="Mínimo de 6 caracteres">
+                </div>
+                <div class="form-group">
+                    <label for="confirm-password">Confirmar Nova Senha</label>
+                    <input type="password" id="confirm-password" class="form-control" required minlength="6" placeholder="Repita a nova senha">
+                </div>
+            </form>
+            <div class="modal-footer">
+                <button id="cancel-password-modal-btn" class="modal-button secondary">Cancelar</button>
+                <button id="confirm-password-change-btn" class="modal-button primary">Salvar Nova Senha</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    
+    <script>
+        const firebaseConfig = {
+          apiKey: "AIzaSyCOw1fbiRvQiKbZS5nlqZCn7uDexVdC3fA",
+          authDomain: "dashboard-e66b8.firebaseapp.com",
+          databaseURL: "https://dashboard-e66b8-default-rtdb.firebaseio.com",
+          projectId: "dashboard-e66b8",
+          storageBucket: "dashboard-e66b8.firebasestorage.app",
+          messagingSenderId: "446228069452",
+          appId: "1:446228069452:web:59e214f01a0ae1afb488e9",
+          measurementId: "G-0JVJ813XZQ"
+        };
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+    </script>
+    
+    <script src="/static/js/global.js?v=1.1"></script>
+    <script src="/static/js/login.js?v=1.5"></script> 
+</body>
+</html>

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Chat com LUCA</title>
+    <link rel="stylesheet" href="/static/css/base.css?v=1.1">
+    <link rel="stylesheet" href="/static/css/dashboard_layout.css?v=1.1">
+    <link rel="stylesheet" href="/static/css/chat_page.css?v=1.0">
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+</head>
+<body>
+
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo"><i class='bx bxs-bar-chart-alt-2'></i></div>
+            <span class="logo-text">Análises</span>
+        </div>
+        <div class="sidebar-main">
+            <a href="/dashboard-web" class="sidebar-link-external" title="Dashboard"><i class='bx bxs-dashboard'></i><span class="link-text">Dashboard</span></a>
+            <hr class="sidebar-divider">
+            <a href="/chat" class="sidebar-link-external active" title="Chat LUCA"><i class='bx bxs-bot'></i><span class="link-text">Chat LUCA</span></a>
+        </div>
+        <div class="sidebar-bottom">
+            <a href="#" id="logout-btn" class="sidebar-link" title="Sair"><i class='bx bx-log-out'></i><span class="link-text">Sair</span></a>
+        </div>
+    </aside>
+    
+    <div class="sidebar-overlay"></div>
+
+    <main class="main-content">
+        <header class="main-header">
+            <button id="sidebar-toggle-btn" class="header-button" title="Abrir/Fechar Menu"><i class='bx bx-menu'></i></button>
+        </header>
+        
+        <div class="chat-container">
+            <div id="chat-history" class="chat-history">
+            </div>
+            <div class="chat-input-area">
+                <div class="chat-input-wrapper">
+                    <input type="text" id="chat-input" placeholder="Converse com o LUCA...">
+                    <button id="send-btn" class="action-btn" title="Enviar"><i class='bx bxs-send'></i></button>
+                </div>
+                <button id="pdf-btn" class="action-btn pdf" title="Gerar PDF"><i class='bx bxs-file-pdf'></i></button>
+            </div>
+        </div>
+    </main>
+    
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="spinner"></div>
+    </div>
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script>
+        const firebaseConfig = {
+          apiKey: "AIzaSyCOw1fbiRvQiKbZS5nlqZCn7uDexVdC3fA",
+          authDomain: "dashboard-e66b8.firebaseapp.com",
+          databaseURL: "https://dashboard-e66b8-default-rtdb.firebaseio.com",
+          projectId: "dashboard-e66b8",
+          storageBucket: "dashboard-e66b8.firebasestorage.app",
+          messagingSenderId: "446228069452",
+          appId: "1:446228069452:web:59e214f01a0ae1afb488e9",
+          measurementId: "G-0JVJ813XZQ"
+        };
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+    </script>
+    
+    <script src="/static/js/global.js?v=1.1" defer></script>
+    <script src="/static/js/chat.js?v=1.1" defer></script>
+
+</body>
+</html>

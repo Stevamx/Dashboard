@@ -1,0 +1,139 @@
+<nav class="main-nav active" data-module="module-vendas">
+    <button class="nav-button active" data-target="content-vendas-analise">Análise de Vendas</button>
+    <button class="nav-button" data-target="content-vendas-vendedores">Vendedores</button>
+</nav>
+
+<div id="module-vendas" class="main-module active">
+    <div id="content-vendas-analise" class="page active">
+        <div class="container">
+            <div class="page-header">
+                <h2>Análise de Vendas</h2>
+                <button id="sales-filter-btn" class="action-button" title="Filtrar Período e Vendedores"><i class='bx bx-filter-alt'></i> Filtrar</button>
+            </div>
+             <div class="kpi-grid">
+                <div class="card kpi-card" data-card-id="sales_kpi_revenue"><div class="kpi-icon"><i class='bx bxs-dollar-circle'></i></div><div class="kpi-text"><h3>Faturamento Total</h3><div id="sales-kpi-revenue" class="value">R$ 0,00</div></div></div>
+                <div class="card kpi-card" data-card-id="sales_kpi_orders"><div class="kpi-icon"><i class='bx bxs-cart'></i></div><div class="kpi-text"><h3>Total de Pedidos</h3><div id="sales-kpi-orders" class="value">0</div></div></div>
+                <div class="card kpi-card" data-card-id="sales_kpi_ticket"><div class="kpi-icon"><i class='bx bx-receipt'></i></div><div class="kpi-text"><h3>Ticket Médio</h3><div id="sales-kpi-ticket" class="value">R$ 0,00</div></div></div>
+                <div class="card kpi-card" data-card-id="sales_kpi_net_profit"><div class="kpi-icon"><i class='bx bx-line-chart'></i></div><div class="kpi-text"><h3>Lucro Líquido</h3><div id="sales-kpi-net-profit" class="value">R$ 0,00</div></div></div>
+            </div>
+            <div class="main-grid">
+                <div class="card chart-card" data-card-id="chart_daily_sales_vendas"><h2>Desempenho (Últimos 7 Dias)</h2><div class="chart-wrapper"><canvas id="dailySalesChartVendas"></canvas></div></div>
+                <div class="card chart-card" data-card-id="chart_peak_hours"><h2>Horários de Pico</h2><div class="chart-wrapper"><canvas id="peakHoursChart"></canvas></div></div>
+                <div class="card chart-card" data-card-id="chart_profit_margin"><h2>Evolução da Margem de Lucro (%)</h2><div class="chart-wrapper"><canvas id="profitMarginChart"></canvas></div></div>
+                <div class="card chart-card" data-card-id="chart_payment_methods"><h2>Formas de Pagamento</h2><div class="chart-wrapper"><canvas id="paymentMethodsChart"></canvas></div></div>
+                <div class="card chart-card" data-card-id="chart_top_products">
+                    <div class="card-title-wrapper"><h2 id="top-products-chart-title">Top 10 Produtos</h2><div class="toggle-buttons"><button id="top-products-revenue-btn" class="toggle-btn active" data-mode="revenue">Faturamento</button><button id="top-products-profit-btn" class="toggle-btn" data-mode="profit">Lucratividade</button></div></div>
+                    <div class="chart-wrapper"><canvas id="topProductsChart"></canvas></div>
+                </div>
+                <div class="card chart-card" data-card-id="chart_sales_by_group">
+                    <h2>Vendas por Grupo</h2>
+                    <div class="chart-wrapper"><canvas id="salesByGroupChart"></canvas></div>
+                </div>
+                <div class="card full-width-card" data-card-id="chart_annual_sales">
+                    <div class="card-title-wrapper">
+                        <h2>Faturamento Anual (Mês a Mês)</h2>
+                        <div id="annual-sales-filter" class="card-header-form">
+                            <input type="number" id="annual-sales-year1" class="card-header-input" placeholder="Ano">
+                            <span class="comparison-vs">vs</span>
+                            <input type="number" id="annual-sales-year2" class="card-header-input" placeholder="Ano">
+                            <button id="apply-annual-sales-filter" class="card-header-button small">OK</button>
+                        </div>
+                    </div>
+                    <div class="chart-wrapper"><canvas id="annualSalesChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="content-vendas-vendedores" class="page">
+        <div class="container">
+            <div class="page-header">
+                <h2>Análise de Vendedores</h2>
+                <div class="page-header-filters">
+                    <div class="vendor-filter-container">
+                        <label for="vendedor-select-filter">Vendedor:</label>
+                        <select id="vendedor-select-filter" class="custom-select"></select>
+                    </div>
+                     <div class="date-filter-container">
+                        <label for="vendor-start-date">De:</label>
+                        <input type="date" id="vendor-start-date" class="header-date-input">
+                        <label for="vendor-end-date">Até:</label>
+                        <input type="date" id="vendor-end-date" class="header-date-input">
+                        <button id="apply-vendor-date-filter" class="action-button small-btn">Aplicar</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="vendor-specific-charts" class="main-grid" style="display: none;">
+                <div class="card full-width-card" data-card-id="chart_sales_evolution_vendor">
+                    <h2 id="sales-evolution-vendor-title">Evolução de Vendas</h2>
+                    <div class="chart-wrapper"><canvas id="salesEvolutionVendorChart"></canvas></div>
+                </div>
+                <div class="card chart-card" data-card-id="chart_top_products_vendor">
+                    <h2 id="top-products-vendor-title">Top 10 Produtos Vendidos</h2>
+                    <div class="chart-wrapper"><canvas id="topProductsVendorChart"></canvas></div>
+                </div>
+                <div class="card chart-card" data-card-id="list_top_customers_vendor">
+                    <h2 id="top-customers-vendor-title">Top 5 Clientes Atendidos</h2>
+                    <div id="topCustomersVendorList" class="product-list-container">
+                    </div>
+                </div>
+            </div>
+
+            <div id="vendor-ranking-card" class="card full-width-card">
+                 <h2>Visão Geral dos Vendedores</h2>
+                 <div class="card chart-card" data-card-id="chart_vendor_performance" style="grid-column: span 12; margin-bottom: 25px;">
+                    <div class="chart-wrapper" style="min-height: 300px;"><canvas id="vendorPerformanceChart"></canvas></div>
+                 </div>
+                <div class="ranking-table-container">
+                    <table class="ranking-table">
+                        <thead>
+                            <tr>
+                                <th>Vendedor</th>
+                                <th>Faturamento Total</th>
+                                <th>Lucro Gerado</th>
+                                <th>Ticket Médio</th>
+                                <th>Produtos / Pedido</th>
+                                <th>Desconto Médio</th>
+                            </tr>
+                        </thead>
+                        <tbody id="vendor-ranking-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="sales-filter-modal-overlay" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header"><h2>Filtrar Análise de Vendas</h2></div>
+        <div class="modal-body">
+            <div class="form-section">
+                <h3>Períodos Rápidos</h3>
+                <div class="preset-buttons">
+                    <button class="modal-button secondary sales-preset-date-btn" data-range="today">Hoje</button>
+                    <button class="modal-button secondary sales-preset-date-btn" data-range="week">Esta Semana</button>
+                    <button class="modal-button secondary sales-preset-date-btn" data-range="month">Este Mês</button>
+                    <button class="modal-button secondary sales-preset-date-btn" data-range="year">Este Ano</button>
+                </div>
+            </div>
+            <div class="form-section">
+                <h3>Período Específico</h3>
+                <div class="date-inputs">
+                    <div class="form-group"><label for="start-date">Data Inicial</label><input type="date" id="start-date"></div>
+                    <div class="form-group"><label for="end-date">Data Final</label><input type="date" id="end-date"></div>
+                </div>
+            </div>
+            <div class="form-section">
+                <h3>Vendedores</h3>
+                <div class="vendor-controls"><div class="vendor-buttons"><button type="button" id="vendor-select-all" class="modal-button secondary small">Marcar Todos</button><button type="button" id="vendor-deselect-all" class="modal-button secondary small">Desmarcar Todos</button></div></div>
+                <div id="vendor-list" class="vendor-list"></div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button id="cancel-sales-filter-btn" class="modal-button secondary">Cancelar</button>
+            <button id="apply-sales-filter-btn" class="modal-button primary">Aplicar Filtros</button>
+        </div>
+    </div>
+</div>
