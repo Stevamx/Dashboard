@@ -18,11 +18,7 @@ from typing import Dict
 # --- CONFIGURAÇÃO ---
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost")
 
-# ### CORREÇÃO FINAL - LÓGICA DE TAREFAS E RESPOSTAS ###
-# Dicionário para armazenar Futures de asyncio para aguardar respostas
 tasks: Dict[str, asyncio.Future] = {}
-
-# --- GERENCIAMENTO DE CONEXÕES COM REDIS (Pub/Sub) ---
 pubsub_client: PubSubClient = None
 
 # --- LÓGICA DA APLICAÇÃO ---
@@ -39,9 +35,8 @@ async def execute_query_via_agent(company_cnpj: str, sql: str, params: list = []
     payload = {"id_tarefa": task_id, "acao": "query", "parametros": {"sql": sql, "params": params}}
     
     try:
-        # Publica a tarefa no canal do agente
+        # A versão 1.0.1 usa 'data' como argumento nomeado para o json
         await pubsub_client.publish([f"agent:{company_cnpj}"], data=json.dumps(payload, default=json_converter))
-        # Aguarda a Future ser resolvida por até 20 segundos
         result = await asyncio.wait_for(future, timeout=20.0)
         
         if result.get("status") == "erro":
@@ -54,7 +49,6 @@ async def execute_query_via_agent(company_cnpj: str, sql: str, params: list = []
     except asyncio.TimeoutError:
         raise HTTPException(status_code=408, detail="O agente local demorou muito para responder (timeout).")
     finally:
-        # Limpa a tarefa do dicionário
         tasks.pop(task_id, None)
 
 # --- IMPORTAÇÃO DOS ROTEADORES ---
@@ -67,9 +61,13 @@ from routers import (
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global pubsub_client
-    # --- INICIALIZAÇÃO ---
+    # ### CORREÇÃO APLICADA AQUI ###
+    # A inicialização correta para a v1.0.1 exige que o broadcaster seja iniciado
+    # e depois passado para o cliente PubSub.
     redis_connection = redis.from_url(REDIS_URL, decode_responses=True)
-    pubsub_client = PubSubClient(broadcaster=redis_connection)
+    pubsub_client = PubSubClient()
+    # O método 'start_broadcaster' é o correto para a v1.0.1
+    await pubsub_client.start_broadcaster(broadcaster=redis_connection)
     
     try:
         cred = credentials.Certificate("firebase-service-account.json")
@@ -117,22 +115,18 @@ async def read_metas_page(): return "static/metas.html"
 @app.get("/tv", response_class=FileResponse, include_in_schema=False)
 async def read_tv_page(): return "static/tv.html"
 
-# ### ENDPOINT WEBSOCKET FINAL ###
 @app.websocket("/ws/{company_id}")
 async def websocket_endpoint(websocket: WebSocket, company_id: str):
     await websocket.accept()
-    # Inscreve o agente para receber mensagens destinadas a ele
     await pubsub_client.subscribe(websocket, [f"agent:{company_id}"])
     try:
         print(f"INFO: Agente da empresa '{company_id}' conectou e se inscreveu no canal.")
         while True:
-            # Espera por respostas do agente
             data = await websocket.receive_text()
             message = json.loads(data)
             
             task_id = message.get("id_tarefa")
             if task_id and task_id in tasks:
-                # Se a mensagem é uma resposta a uma tarefa, resolve a Future
                 future = tasks.pop(task_id)
                 future.set_result(message)
                 
