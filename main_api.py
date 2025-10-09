@@ -9,7 +9,6 @@ import json
 import os
 import asyncio
 import uuid
-# --- ALTERAÇÃO 1: IMPORTAR DATETIME E DATE ---
 from datetime import date, datetime
 
 # --- INICIALIZAÇÃO DO FIREBASE ---
@@ -25,11 +24,11 @@ try:
     print("Firebase Admin SDK inicializado com sucesso.")
 except Exception as e:
     print(f"Erro ao inicializar Firebase Admin SDK: {e}")
-    exit()
+    # Em um ambiente de produção, talvez você queira que a aplicação pare aqui.
+    # exit()
 
 task_results = {}
 
-# --- ALTERAÇÃO 2: ADICIONAR A FUNÇÃO CONVERSORA ---
 def json_converter(o):
     """Converte tipos de dados não serializáveis como data e hora para string."""
     if isinstance(o, (datetime, date)):
@@ -52,8 +51,13 @@ class ConnectionManager:
     async def send_message(self, company_id: str, message: str) -> bool:
         if company_id in self.active_connections:
             websocket = self.active_connections[company_id]
-            await websocket.send_text(message)
-            return True
+            try:
+                await websocket.send_text(message)
+                return True
+            except Exception as e:
+                print(f"ERRO ao enviar mensagem para o agente '{company_id}': {e}")
+                self.disconnect(company_id)
+                return False
         return False
 
     async def is_connected(self, company_id: str) -> bool:
@@ -61,20 +65,29 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
+# ### FUNÇÃO ALTERADA ###
 async def execute_query_via_agent(company_cnpj: str, sql: str, params: list = []):
     """
-    Envia uma consulta SQL para o agente local correspondente e aguarda o resultado.
+    Envia uma consulta SQL para o agente local e aguarda o resultado.
+    Agora inclui uma breve espera para permitir a reconexão do agente.
     """
-    if not await manager.is_connected(company_cnpj):
+    # Tenta por até 3 segundos (30 * 0.1s) para encontrar um agente conectado.
+    # Isso dá tempo para o agente reconectar caso a conexão tenha caído.
+    for _ in range(30):
+        if await manager.is_connected(company_cnpj):
+            break
+        await asyncio.sleep(0.1)
+    else:
+        # Se o loop terminar sem encontrar o agente, lança a exceção.
         raise HTTPException(status_code=404, detail=f"O agente local para a empresa não está conectado. Verifique se o agente está em execução no servidor do cliente.")
 
     task_id = str(uuid.uuid4())
     payload = {"id_tarefa": task_id, "acao": "query", "parametros": {"sql": sql, "params": params}}
     
-    # --- ALTERAÇÃO 3: USAR O CONVERSOR NO JSON.DUMPS ---
     await manager.send_message(company_cnpj, json.dumps(payload, default=json_converter))
 
-    for _ in range(150): # Espera por até 15 segundos
+    # Aumentado o tempo de espera pela resposta para 20 segundos para acomodar latência da rede.
+    for _ in range(200):
         if task_id in task_results:
             result = task_results.pop(task_id)
             if result.get("status") == "erro":
