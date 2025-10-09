@@ -10,22 +10,9 @@ import os
 import asyncio
 import uuid
 from datetime import date, datetime
+from contextlib import asynccontextmanager # ### CORREÇÃO: Importa o gerenciador de contexto
 
-# --- INICIALIZAÇÃO DO FIREBASE ---
-try:
-    CREDENTIALS_FILE = "firebase-service-account.json"
-    if not os.path.exists(CREDENTIALS_FILE):
-        raise FileNotFoundError(f"Arquivo de credenciais '{CREDENTIALS_FILE}' não encontrado.")
-    
-    cred = credentials.Certificate(CREDENTIALS_FILE)
-    firebase_admin.initialize_app(cred, {
-        'databaseURL': 'https://dashboard-e66b8-default-rtdb.firebaseio.com/'
-    })
-    print("Firebase Admin SDK inicializado com sucesso.")
-except Exception as e:
-    print(f"Erro ao inicializar Firebase Admin SDK: {e}")
-    # Em um ambiente de produção, talvez você queira que a aplicação pare aqui.
-    # exit()
+# ### CORREÇÃO: A inicialização do Firebase foi movida para dentro da função 'lifespan' ###
 
 task_results = {}
 
@@ -65,20 +52,15 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-# ### FUNÇÃO ALTERADA ###
 async def execute_query_via_agent(company_cnpj: str, sql: str, params: list = []):
     """
     Envia uma consulta SQL para o agente local e aguarda o resultado.
-    Agora inclui uma breve espera para permitir a reconexão do agente.
     """
-    # Tenta por até 3 segundos (30 * 0.1s) para encontrar um agente conectado.
-    # Isso dá tempo para o agente reconectar caso a conexão tenha caído.
     for _ in range(30):
         if await manager.is_connected(company_cnpj):
             break
         await asyncio.sleep(0.1)
     else:
-        # Se o loop terminar sem encontrar o agente, lança a exceção.
         raise HTTPException(status_code=404, detail=f"O agente local para a empresa não está conectado. Verifique se o agente está em execução no servidor do cliente.")
 
     task_id = str(uuid.uuid4())
@@ -86,7 +68,6 @@ async def execute_query_via_agent(company_cnpj: str, sql: str, params: list = []
     
     await manager.send_message(company_cnpj, json.dumps(payload, default=json_converter))
 
-    # Aumentado o tempo de espera pela resposta para 20 segundos para acomodar latência da rede.
     for _ in range(200):
         if task_id in task_results:
             result = task_results.pop(task_id)
@@ -99,7 +80,6 @@ async def execute_query_via_agent(company_cnpj: str, sql: str, params: list = []
     
     raise HTTPException(status_code=408, detail="O agente local demorou muito para responder (timeout).")
 
-
 # --- IMPORTAÇÃO DOS ROTEADORES ---
 from routers import (
     dashboard_main, dashboard_vendas, dashboard_estoque, luca_ai, 
@@ -107,7 +87,38 @@ from routers import (
     company_data
 )
 
-app = FastAPI(title="Dashboard de Vendas API")
+# ### CORREÇÃO: Função 'lifespan' para inicializar o Firebase uma única vez ###
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Código a ser executado na inicialização
+    try:
+        CREDENTIALS_FILE = "firebase-service-account.json"
+        if not os.path.exists(CREDENTIALS_FILE):
+            # Em produção, um erro aqui deve parar a aplicação
+            raise FileNotFoundError(f"Arquivo de credenciais '{CREDENTIALS_FILE}' não encontrado.")
+        
+        cred = credentials.Certificate(CREDENTIALS_FILE)
+        # Verifica se o app já não foi inicializado
+        if not firebase_admin._apps:
+            firebase_admin.initialize_app(cred, {
+                'databaseURL': 'https://dashboard-e66b8-default-rtdb.firebaseio.com/'
+            })
+            print("Firebase Admin SDK inicializado com sucesso.")
+        else:
+            print("Firebase Admin SDK já estava inicializado.")
+    except Exception as e:
+        print(f"ERRO CRÍTICO ao inicializar Firebase Admin SDK: {e}")
+        # É importante parar a aplicação se o Firebase não puder ser iniciado
+        # Em um ambiente de produção real, você pode querer um sistema de alerta aqui.
+    
+    yield
+    # Código a ser executado no encerramento (se necessário)
+    print("Encerrando a aplicação.")
+
+
+# ### CORREÇÃO: Passa a função 'lifespan' para o FastAPI ###
+app = FastAPI(title="Dashboard de Vendas API", lifespan=lifespan)
+
 
 app.add_middleware(
     CORSMiddleware,
