@@ -8,11 +8,11 @@ import json
 import re
 from datetime import datetime
 import asyncio
-import uuid
 import requests
 
-from main_api import manager, task_results 
-# 1. Importa a dependência correta
+# ### CORREÇÃO APLICADA AQUI ###
+# Remove a importação de 'manager' e 'task_results' e importa a nova função.
+from main_api import execute_query_via_agent 
 from dependencies import get_company_fk, EmpresaInfo, verificar_empresa
 from database import connect
 
@@ -65,13 +65,11 @@ def call_gemini_api(prompt: str, api_key: str):
         raise HTTPException(status_code=500, detail=f"Ocorreu um erro inesperado: {e}")
         
 @router.post("/luca/chat", response_model=LucaResponse)
-async def handle_luca_chat(request: LucaRequest, empresa_info: EmpresaInfo = Depends(verificar_empresa), id_empresa: str = Depends(get_company_fk)): # 2. Usa a dependência
+async def handle_luca_chat(request: LucaRequest, empresa_info: EmpresaInfo = Depends(verificar_empresa), id_empresa: str = Depends(get_company_fk)):
     try:
         settings = get_ai_settings()
         api_key = settings["api_key"]
 
-        # 3. Adiciona regra explícita sobre ID_EMPRESA no prompt do sistema
-        # CORREÇÃO: Usa aspas simples ao redor do id_empresa no prompt para garantir que seja tratado como string no SQL.
         full_prompt_for_sql = (
             f"{settings['system_prompt']}\n"
             f"Sua tarefa é analisar a pergunta do usuário e, se possível, convertê-la em uma consulta SQL para um banco Firebird.\n"
@@ -81,7 +79,7 @@ async def handle_luca_chat(request: LucaRequest, empresa_info: EmpresaInfo = Dep
             f"--- Regras de SQL ---\n"
             f"1. Use o dialeto SQL do Firebird.\n"
             f"2. A data atual é {datetime.now().strftime('%Y-%m-%d')}.\n"
-            f"3. CRÍTICO: TODA query que acessar tabelas como TVENPEDIDO, TESTPRODUTO, etc., DEVE OBRIGATORIAMENTE incluir um filtro pelo ID da empresa. Exemplo: 'WHERE ... AND ID_EMPRESA = ''{id_empresa}'''.\n"
+            f"3. CRÍTICO: TODA query que acessar tabelas como TVENPEDIDO, TESTPRODUTO, etc., DEVE OBRIGATORIAMENTE incluir um filtro pelo ID da empresa. Exemplo: 'WHERE ... AND EMPRESA = ''{id_empresa}'''.\n"
             f"--- Pergunta do Usuário ---\n"
             f'"{request.prompt}"'
         )
@@ -94,38 +92,22 @@ async def handle_luca_chat(request: LucaRequest, empresa_info: EmpresaInfo = Dep
 
         generated_sql = sql_match.group(1).strip().split(';')[0]
         
-        # 4. Validação de segurança: Garante que o ID da empresa está na query
-        # Se a IA esquecer, nós adicionamos.
-        if "ID_EMPRESA" not in generated_sql.upper():
+        # Garante que o ID da empresa está na query
+        if "EMPRESA" not in generated_sql.upper():
             if "WHERE" in generated_sql.upper():
-                 # CORREÇÃO: Usa aspas simples ao redor do id_empresa
-                generated_sql = re.sub(r"(WHERE)", f"WHERE ID_EMPRESA = '{id_empresa}' AND", generated_sql, flags=re.IGNORECASE, count=1)
+                generated_sql = re.sub(r"(WHERE)", f"WHERE EMPRESA = '{id_empresa}' AND", generated_sql, flags=re.IGNORECASE, count=1)
             else:
-                 # Adiciona a cláusula WHERE se não existir
-                generated_sql += f" WHERE ID_EMPRESA = '{id_empresa}'"
-
-        task_id = str(uuid.uuid4())
-        company_id_for_ws = empresa_info.company_id # Usa o CNPJ já validado
-
-        payload = {"id_tarefa": task_id, "acao": "query", "parametros": {"sql": generated_sql, "params": []}}
-        is_connected = await manager.send_message(company_id_for_ws, json.dumps(payload))
-
-        if not is_connected:
-            raise HTTPException(status_code=404, detail="O agente local para a sua empresa não está conectado.")
-
-        result = None
-        for _ in range(300):
-            if task_id in task_results:
-                result = task_results.pop(task_id)
-                break
-            await asyncio.sleep(0.1)
+                generated_sql += f" WHERE EMPRESA = '{id_empresa}'"
         
-        if result is None:
-            raise HTTPException(status_code=408, detail="O agente local demorou muito para responder (timeout).")
-        if result.get("status") == "erro":
-            raise HTTPException(status_code=400, detail=f"Erro no agente local: {result.get('mensagem')}")
+        # ### CORREÇÃO APLICADA AQUI ###
+        # Substitui o antigo sistema de 'manager' e 'task_results'
+        # pela nova função centralizada que usa Redis.
+        query_result = await execute_query_via_agent(
+            empresa_info.company_id, # CNPJ já validado
+            generated_sql,
+            [] # params
+        )
 
-        query_result = result.get("dados", [])
         if not query_result:
             return LucaResponse(answer="A consulta foi executada, mas não encontrou nenhum dado.")
 
