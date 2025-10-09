@@ -60,14 +60,14 @@ from routers import (
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global pubsub_client
-    # ### CORREÇÃO DEFINITIVA APLICADA AQUI ###
-    # A inicialização correta exige que o broadcaster seja iniciado como uma tarefa de fundo.
+    # ### CORREÇÃO DEFINITIVA ###
+    # O método 'listen' está no próprio cliente, não em um atributo 'broadcaster'.
     redis_connection = redis.from_url(REDIS_URL, decode_responses=True)
     pubsub_client = PubSubClient(broadcaster=redis_connection)
     
     # Inicia o "ouvinte" do Redis como uma tarefa de fundo
-    broadcaster_task = asyncio.create_task(pubsub_client.broadcaster.listen())
-    print("Broadcaster do Redis iniciado em segundo plano.")
+    listener_task = asyncio.create_task(pubsub_client.listen())
+    print("Listener do PubSub iniciado em segundo plano.")
     
     try:
         # Inicializa o Firebase
@@ -84,7 +84,7 @@ async def lifespan(app: FastAPI):
     finally:
         # Garante que as tarefas e conexões sejam encerradas corretamente
         print("Encerrando a aplicação...")
-        broadcaster_task.cancel()
+        listener_task.cancel()
         await redis_connection.close()
         print("Conexão com Redis fechada.")
 
