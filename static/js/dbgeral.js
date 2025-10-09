@@ -1,6 +1,5 @@
 // static/js/dbgeral.js
 (async () => {
-    // --- ALTERAÇÃO APLICADA AQUI: Variável de controle do Modo TV restaurada. ---
     let tvModeInterval = null;
     const VENDORS_STORAGE_KEY = 'dashboardVendorsSelection';
 
@@ -116,20 +115,25 @@
         }
     }
 
+    // ### FUNÇÃO ALTERADA ###
     async function loadDashboardData() {
         if (!document.hidden) {
             try {
-                const [kpiData, monthlyPerformance, metasProgressData] = await Promise.all([
-                    fazerRequisicaoAutenticada(`${API_BASE_URL}/dashboard/kpis`),
-                    fazerRequisicaoAutenticada(`${API_BASE_URL}/dashboard/monthly-performance`),
-                    fazerRequisicaoAutenticada(`${API_BASE_URL}/dashboard/metas-progress`),
-                ]);
+                // Em vez de carregar tudo em paralelo com Promise.all,
+                // vamos carregar um por um, de forma sequencial.
+                // Isso dá tempo para o servidor do Render "acordar" e estabilizar.
+
+                const kpiData = await fazerRequisicaoAutenticada(`${API_BASE_URL}/dashboard/kpis`);
                 if (kpiData) updateKpiCards(kpiData);
+
+                const monthlyPerformance = await fazerRequisicaoAutenticada(`${API_BASE_URL}/dashboard/monthly-performance`);
                 if (monthlyPerformance) renderMonthlyPerformanceChart(monthlyPerformance);
+
+                const metasProgressData = await fazerRequisicaoAutenticada(`${API_BASE_URL}/dashboard/metas-progress`);
                 if (metasProgressData) renderMetasProgress(metasProgressData);
+                
             } catch (error) { 
                 console.error("Falha ao carregar dados do dashboard:", error); 
-                // --- ALTERAÇÃO APLICADA AQUI: Condição para desativar Modo TV restaurada. ---
                 if(tvModeInterval) deactivateTvMode();
             }
         }
@@ -148,16 +152,20 @@
         const openModal = async () => {
             vendorListContainer.innerHTML = '<p class="product-list-empty">Carregando...</p>';
             modal.classList.add('visible');
-            const allVendors = await fazerRequisicaoAutenticada('/vendas/vendedores');
-            const savedVendors = getSavedVendors();
-            const currentlySelected = savedVendors || allVendors || [];
-            if (allVendors && allVendors.length > 0) {
-                vendorListContainer.innerHTML = allVendors.map(vendor => {
-                    const isChecked = currentlySelected.includes(vendor) ? 'checked' : '';
-                    return `<label class="custom-checkbox"><input type="checkbox" name="vendors" value="${vendor}" ${isChecked}><span class="checkmark"></span>${vendor}</label>`;
-                }).join('');
-            } else {
-                vendorListContainer.innerHTML = '<p class="product-list-empty">Nenhum vendedor encontrado.</p>';
+            try {
+                const allVendors = await fazerRequisicaoAutenticada('/vendas/vendedores');
+                const savedVendors = getSavedVendors();
+                const currentlySelected = savedVendors || allVendors || [];
+                if (allVendors && allVendors.length > 0) {
+                    vendorListContainer.innerHTML = allVendors.map(vendor => {
+                        const isChecked = currentlySelected.includes(vendor) ? 'checked' : '';
+                        return `<label class="custom-checkbox"><input type="checkbox" name="vendors" value="${vendor}" ${isChecked}><span class="checkmark"></span>${vendor}</label>`;
+                    }).join('');
+                } else {
+                    vendorListContainer.innerHTML = '<p class="product-list-empty">Nenhum vendedor encontrado.</p>';
+                }
+            } catch (e) {
+                vendorListContainer.innerHTML = `<p class="product-list-empty" style="color: var(--kpi-red);">${e.message}</p>`;
             }
         };
         const closeModal = () => modal.classList.remove('visible');
@@ -176,14 +184,12 @@
         deselectAllBtn.addEventListener('click', () => vendorListContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false));
     }
     
-    // --- ALTERAÇÃO APLICADA AQUI: Funções do Modo TV restauradas. ---
     function activateTvMode() {
         if (tvModeInterval) return;
         window.open('/tv', '_blank');
     }
 
     function initializeTvModeControls() {
-        // O botão agora está na sidebar principal (dashboard.html)
         const tvModeBtn = document.getElementById('sidebar-tv-mode-btn');
         if (tvModeBtn) {
             tvModeBtn.addEventListener('click', (e) => {
@@ -198,7 +204,6 @@
     await loadTopVendorsChart();
     hideLoading();
     
-    // --- ALTERAÇÃO APLICADA AQUI: Chamada de inicialização do Modo TV restaurada. ---
     initializeTvModeControls();
     initializeVendorSelection();
 })();
