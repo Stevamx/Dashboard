@@ -21,7 +21,6 @@ REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost")
 pubsub_client: PubSubClient = None
 
 async def is_agent_connected(company_id: str) -> bool:
-    """Verifica se um agente está online publicando uma mensagem de 'ping'."""
     try:
         await pubsub_client.wait_for_response(
             pubsub_client.publish(f"agent:{company_id}", {"action": "ping"}),
@@ -71,9 +70,11 @@ async def lifespan(app: FastAPI):
     global pubsub_client
     # --- INICIALIZAÇÃO ---
     redis_connection = redis.from_url(REDIS_URL, decode_responses=True)
-    pubsub_client = PubSubClient()
-    # A versão 1.0.1 da biblioteca requer que o startup seja chamado assim
-    await pubsub_client.startup(broadcaster=redis_connection)
+    
+    # ### CORREÇÃO APLICADA AQUI ###
+    # A versão 1.0.1 da biblioteca inicializa o broadcaster diretamente no construtor,
+    # e não possui o método .startup().
+    pubsub_client = PubSubClient(broadcaster=redis_connection)
     
     try:
         cred = credentials.Certificate("firebase-service-account.json")
@@ -121,42 +122,32 @@ async def read_metas_page(): return "static/metas.html"
 @app.get("/tv", response_class=FileResponse, include_in_schema=False)
 async def read_tv_page(): return "static/tv.html"
 
-# ### ENDPOINT WEBSOCKET CORRIGIDO PARA A VERSÃO 1.0.1 DA BIBLIOTECA ###
+# ### ENDPOINT WEBSOCKET AJUSTADO ###
+# A versão 1.0.1 da biblioteca usa subscribe e publish em vez de tracker.
 @app.websocket("/ws/{company_id}")
 async def websocket_endpoint(websocket: WebSocket, company_id: str):
-    await websocket.accept()
-    # Inscreve o websocket no canal do agente e no canal de broadcast (para respostas)
-    async with pubsub_client.subscribe(websocket, [f"agent:{company_id}"]) as subscriber:
-        print(f"INFO: Agente da empresa '{company_id}' conectou e se inscreveu no canal.")
-        try:
-            # Tarefa para lidar com mensagens recebidas do agente
-            async def handle_messages_from_agent():
-                async for data in subscriber:
-                    message = json.loads(data)
-                    # Responde ao ping para se manter "vivo"
-                    if message.get("action") == "ping":
-                        response = json.dumps({"id": message["id"], "response": "pong"})
-                        await websocket.send_text(response)
-                        continue
-                    
-                    # Publica respostas de tarefas no canal de broadcast
-                    if "id_tarefa" in message:
-                        await pubsub_client.publish([pubsub_client.broadcast_topic], data=json.dumps(message))
+    await pubsub_client.subscribe(websocket, [f"agent:{company_id}"])
+    print(f"INFO: Agente da empresa '{company_id}' conectou e se inscreveu no canal.")
+    try:
+        # A versão 1.0.1 não tem um "tracker", então o loop é mais direto
+        while True:
+            data = await websocket.receive_text()
+            message = json.loads(data)
 
-            # Tarefa para lidar com mensagens recebidas do broadcast (destinadas a este agente)
-            async def handle_messages_from_server():
-                async with pubsub_client.endpoint.broadcast() as channel:
-                    async for data in channel:
-                        message = json.loads(data)
-                        # Verifica se a mensagem tem um ID de tarefa e a envia para o websocket
-                        if "id_tarefa" in message:
-                             await websocket.send_text(json.dumps(message))
+            # Responde ao ping para se manter "vivo"
+            if message.get("action") == "ping":
+                response = json.dumps({"id": message["id"], "response": "pong"})
+                await websocket.send_text(response)
+                continue
+            
+            # Publica respostas de tarefas para o worker que solicitou
+            if "id_tarefa" in message:
+                await pubsub_client.publish_response(f"agent:{company_id}", message)
 
-            # Executa as duas tarefas em paralelo
-            await asyncio.gather(handle_messages_from_agent(), handle_messages_from_server())
-
-        except WebSocketDisconnect:
-            print(f"INFO: Agente da empresa '{company_id}' desconectou.")
-        except Exception as e:
-            print(f"ERRO no endpoint websocket para '{company_id}': {e}")
-            await websocket.close()
+    except WebSocketDisconnect:
+        print(f"INFO: Agente da empresa '{company_id}' desconectou.")
+    except Exception as e:
+        print(f"ERRO no endpoint websocket para '{company_id}': {e}")
+    finally:
+        # Garante que a inscrição seja removida ao desconectar
+        await pubsub_client.unsubscribe(websocket, [f"agent:{company_id}"])
