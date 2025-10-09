@@ -11,7 +11,6 @@ import asyncio
 import uuid
 from datetime import date, datetime
 from contextlib import asynccontextmanager
-# ### CORREÇÃO APLICADA AQUI (import correto) ###
 from fastapi_websocket_pubsub import PubSubClient
 import redis.asyncio as redis
 
@@ -72,7 +71,9 @@ async def lifespan(app: FastAPI):
     global pubsub_client
     # --- INICIALIZAÇÃO ---
     redis_connection = redis.from_url(REDIS_URL, decode_responses=True)
-    pubsub_client = PubSubClient(redis_connection)
+    pubsub_client = PubSubClient()
+    # A versão 1.0.1 da biblioteca requer que o startup seja chamado assim
+    await pubsub_client.startup(broadcaster=redis_connection)
     
     try:
         cred = credentials.Certificate("firebase-service-account.json")
@@ -120,20 +121,42 @@ async def read_metas_page(): return "static/metas.html"
 @app.get("/tv", response_class=FileResponse, include_in_schema=False)
 async def read_tv_page(): return "static/tv.html"
 
+# ### ENDPOINT WEBSOCKET CORRIGIDO PARA A VERSÃO 1.0.1 DA BIBLIOTECA ###
 @app.websocket("/ws/{company_id}")
 async def websocket_endpoint(websocket: WebSocket, company_id: str):
-    async with pubsub_client.tracker(f"agent:{company_id}", websocket) as tracker:
-        print(f"INFO: Agente da empresa '{company_id}' conectou via PubSub.")
+    await websocket.accept()
+    # Inscreve o websocket no canal do agente e no canal de broadcast (para respostas)
+    async with pubsub_client.subscribe(websocket, [f"agent:{company_id}"]) as subscriber:
+        print(f"INFO: Agente da empresa '{company_id}' conectou e se inscreveu no canal.")
         try:
-            async for message in tracker:
-                if message.get("action") == "ping":
-                    await tracker.websocket.send_text(
-                        json.dumps({"id": message["id"], "response": "pong"})
-                    )
-                    continue
-                
-                if "id_tarefa" in message:
-                    await pubsub_client.publish_response(tracker.id, message)
+            # Tarefa para lidar com mensagens recebidas do agente
+            async def handle_messages_from_agent():
+                async for data in subscriber:
+                    message = json.loads(data)
+                    # Responde ao ping para se manter "vivo"
+                    if message.get("action") == "ping":
+                        response = json.dumps({"id": message["id"], "response": "pong"})
+                        await websocket.send_text(response)
+                        continue
+                    
+                    # Publica respostas de tarefas no canal de broadcast
+                    if "id_tarefa" in message:
+                        await pubsub_client.publish([pubsub_client.broadcast_topic], data=json.dumps(message))
+
+            # Tarefa para lidar com mensagens recebidas do broadcast (destinadas a este agente)
+            async def handle_messages_from_server():
+                async with pubsub_client.endpoint.broadcast() as channel:
+                    async for data in channel:
+                        message = json.loads(data)
+                        # Verifica se a mensagem tem um ID de tarefa e a envia para o websocket
+                        if "id_tarefa" in message:
+                             await websocket.send_text(json.dumps(message))
+
+            # Executa as duas tarefas em paralelo
+            await asyncio.gather(handle_messages_from_agent(), handle_messages_from_server())
 
         except WebSocketDisconnect:
-            print(f"INFO: Agente da empresa '{company_id}' desconectou do PubSub.")
+            print(f"INFO: Agente da empresa '{company_id}' desconectou.")
+        except Exception as e:
+            print(f"ERRO no endpoint websocket para '{company_id}': {e}")
+            await websocket.close()
