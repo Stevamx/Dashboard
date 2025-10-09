@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, date
 from dateutil.relativedelta import relativedelta
 import calendar
 from typing import List, Optional
+import asyncio
 
 from dependencies import get_company_fk, EmpresaInfo, verificar_empresa
 from main_api import execute_query_via_agent
@@ -22,61 +23,95 @@ def validate_dashboard_connection(empresa_info: EmpresaInfo = Depends(verificar_
 async def get_dashboard_kpis(empresa_info: EmpresaInfo = Depends(verificar_empresa), id_empresa: str = Depends(get_company_fk)):
     try:
         company_cnpj = empresa_info.company_id
-        hoje, ontem = date.today(), date.today() - timedelta(days=1)
-        mes_atual, mes_passado = datetime.now(), datetime.now() - relativedelta(months=1)
+        hoje = date.today()
+        ontem = hoje - timedelta(days=1)
+        mes_atual = datetime.now()
+        mes_passado = mes_atual - relativedelta(months=1)
+
+        # Consulta principal para a maioria dos KPIs (Vendas, Pedidos, Devoluções, Receita Mensal)
+        sql_principal = """
+            SELECT
+                SUM(CASE WHEN p.DATAEFE = ? AND p.TIPOVENDA = 'NM' THEN p.VALORLIQUIDO ELSE 0 END) as VENDAS_HOJE,
+                SUM(CASE WHEN p.DATAEFE = ? AND p.TIPOVENDA = 'NM' THEN p.VALORLIQUIDO ELSE 0 END) as VENDAS_ONTEM,
+                COUNT(CASE WHEN p.DATAEFE = ? AND p.TIPOVENDA = 'NM' THEN p.CODIGO END) as PEDIDOS_HOJE,
+                COUNT(CASE WHEN p.DATAEFE = ? AND p.TIPOVENDA = 'NM' THEN p.CODIGO END) as PEDIDOS_ONTEM,
+                SUM(CASE WHEN p.DATAEFE = ? AND p.TIPOVENDA = 'DV' THEN p.VALORLIQUIDO ELSE 0 END) as DEVOLUCOES_HOJE,
+                SUM(CASE WHEN p.DATAEFE = ? AND p.TIPOVENDA = 'DV' THEN p.VALORLIQUIDO ELSE 0 END) as DEVOLUCOES_ONTEM,
+                SUM(CASE WHEN EXTRACT(YEAR FROM p.DATAEFE) = ? AND EXTRACT(MONTH FROM p.DATAEFE) = ? AND p.TIPOVENDA = 'NM' THEN p.VALORLIQUIDO ELSE 0 END) as RECEITA_MES_ATUAL,
+                SUM(CASE WHEN EXTRACT(YEAR FROM p.DATAEFE) = ? AND EXTRACT(MONTH FROM p.DATAEFE) = ? AND p.TIPOVENDA = 'NM' THEN p.VALORLIQUIDO ELSE 0 END) as RECEITA_MES_PASSADO
+            FROM
+                TVENPEDIDO p
+            WHERE
+                p.EMPRESA = ? AND p.STATUS = 'EFE'
+                AND (
+                    p.DATAEFE IN (?, ?) OR
+                    (EXTRACT(YEAR FROM p.DATAEFE) = ? AND EXTRACT(MONTH FROM p.DATAEFE) = ?) OR
+                    (EXTRACT(YEAR FROM p.DATAEFE) = ? AND EXTRACT(MONTH FROM p.DATAEFE) = ?)
+                )
+        """
+        params_principal = [
+            hoje, ontem, hoje, ontem, hoje, ontem,
+            mes_atual.year, mes_atual.month, mes_passado.year, mes_passado.month,
+            id_empresa,
+            hoje, ontem,
+            mes_atual.year, mes_atual.month,
+            mes_passado.year, mes_passado.month
+        ]
+
+        # Consulta separada para o Lucro, que requer um JOIN
+        sql_lucro = """
+            SELECT
+                SUM(CASE 
+                    WHEN p.DATAEFE = ? THEN
+                        CASE 
+                            WHEN p.TIPOVENDA = 'NM' THEN (CAST(i.VLRLIQUIDO AS DOUBLE PRECISION) - (CAST(i.QTDE AS DOUBLE PRECISION) * CAST(i.CUSTOFINAL AS DOUBLE PRECISION)))
+                            WHEN p.TIPOVENDA = 'DV' THEN -(CAST(i.VLRLIQUIDO AS DOUBLE PRECISION) - (CAST(i.QTDE AS DOUBLE PRECISION) * CAST(i.CUSTOFINAL AS DOUBLE PRECISION)))
+                            ELSE 0
+                        END
+                    ELSE 0
+                END) as LUCRO_HOJE,
+                SUM(CASE 
+                    WHEN p.DATAEFE = ? THEN
+                        CASE 
+                            WHEN p.TIPOVENDA = 'NM' THEN (CAST(i.VLRLIQUIDO AS DOUBLE PRECISION) - (CAST(i.QTDE AS DOUBLE PRECISION) * CAST(i.CUSTOFINAL AS DOUBLE PRECISION)))
+                            WHEN p.TIPOVENDA = 'DV' THEN -(CAST(i.VLRLIQUIDO AS DOUBLE PRECISION) - (CAST(i.QTDE AS DOUBLE PRECISION) * CAST(i.CUSTOFINAL AS DOUBLE PRECISION)))
+                            ELSE 0
+                        END
+                    ELSE 0
+                END) as LUCRO_ONTEM
+            FROM TVENPEDIDO p
+            JOIN TVENPRODUTO i ON p.CODIGO = i.PEDIDO AND p.EMPRESA = i.EMPRESA
+            WHERE p.DATAEFE IN (?, ?) AND p.STATUS = 'EFE' AND p.TIPOVENDA IN ('NM', 'DV') AND p.EMPRESA = ?
+        """
+        params_lucro = [hoje, ontem, hoje, ontem, id_empresa]
+        
+        # Executa as duas consultas otimizadas em paralelo
+        kpi_res_task = execute_query_via_agent(company_cnpj, sql_principal, params_principal)
+        lucro_res_task = execute_query_via_agent(company_cnpj, sql_lucro, params_lucro)
+        
+        kpi_res, lucro_res = await asyncio.gather(kpi_res_task, lucro_res_task)
+
+        # Verifica se as consultas retornaram resultados antes de acessá-los
+        if not kpi_res or not lucro_res:
+            raise HTTPException(status_code=500, detail="A consulta de KPIs não retornou dados.")
 
         data = {
-            "vendas_hoje": 0.0, "vendas_ontem": 0.0,
-            "pedidos_hoje": 0, "pedidos_ontem": 0,
-            "receita_mensal_atual": 0.0, "receita_mensal_passado": 0.0,
-            "lucro_hoje": 0.0, "lucro_ontem": 0.0,
-            "devolucoes_hoje": 0.0, "devolucoes_ontem": 0.0
+            "vendas_hoje": float(kpi_res[0].get('VENDAS_HOJE') or 0.0),
+            "vendas_ontem": float(kpi_res[0].get('VENDAS_ONTEM') or 0.0),
+            "pedidos_hoje": int(kpi_res[0].get('PEDIDOS_HOJE') or 0),
+            "pedidos_ontem": int(kpi_res[0].get('PEDIDOS_ONTEM') or 0),
+            "receita_mensal_atual": float(kpi_res[0].get('RECEITA_MES_ATUAL') or 0.0),
+            "receita_mensal_passado": float(kpi_res[0].get('RECEITA_MES_PASSADO') or 0.0),
+            "devolucoes_hoje": float(kpi_res[0].get('DEVOLUCOES_HOJE') or 0.0),
+            "devolucoes_ontem": float(kpi_res[0].get('DEVOLUCOES_ONTEM') or 0.0),
+            "lucro_hoje": float(lucro_res[0].get('LUCRO_HOJE') or 0.0),
+            "lucro_ontem": float(lucro_res[0].get('LUCRO_ONTEM') or 0.0)
         }
 
-        base_query = "FROM TVENPEDIDO WHERE DATAEFE = ? AND STATUS = 'EFE' AND TIPOVENDA = ? AND EMPRESA = ?"
-        
-        vendas_hoje_res = await execute_query_via_agent(company_cnpj, f"SELECT SUM(CAST(VALORLIQUIDO AS DOUBLE PRECISION)), COUNT(*) {base_query}", [hoje, 'NM', id_empresa])
-        if vendas_hoje_res:
-            data['vendas_hoje'] = float(vendas_hoje_res[0]['SUM'] or 0.0)
-            data['pedidos_hoje'] = int(vendas_hoje_res[0]['COUNT'] or 0)
-
-        vendas_ontem_res = await execute_query_via_agent(company_cnpj, f"SELECT SUM(CAST(VALORLIQUIDO AS DOUBLE PRECISION)), COUNT(*) {base_query}", [ontem, 'NM', id_empresa])
-        if vendas_ontem_res:
-            data['vendas_ontem'] = float(vendas_ontem_res[0]['SUM'] or 0.0)
-            data['pedidos_ontem'] = int(vendas_ontem_res[0]['COUNT'] or 0)
-
-        sql_receita_mes = "SELECT SUM(CAST(VALORLIQUIDO AS DOUBLE PRECISION)) FROM TVENPEDIDO WHERE EXTRACT(YEAR FROM DATAEFE) = ? AND EXTRACT(MONTH FROM DATAEFE) = ? AND STATUS = 'EFE' AND TIPOVENDA = 'NM' AND EMPRESA = ?"
-        receita_atual_res = await execute_query_via_agent(company_cnpj, sql_receita_mes, [mes_atual.year, mes_atual.month, id_empresa])
-        if receita_atual_res: data['receita_mensal_atual'] = float(receita_atual_res[0]['SUM'] or 0.0)
-        
-        receita_passado_res = await execute_query_via_agent(company_cnpj, sql_receita_mes, [mes_passado.year, mes_passado.month, id_empresa])
-        if receita_passado_res: data['receita_mensal_passado'] = float(receita_passado_res[0]['SUM'] or 0.0)
-
-        devolucoes_hoje_res = await execute_query_via_agent(company_cnpj, f"SELECT SUM(CAST(VALORLIQUIDO AS DOUBLE PRECISION)) {base_query}", [hoje, 'DV', id_empresa])
-        if devolucoes_hoje_res: data['devolucoes_hoje'] = float(devolucoes_hoje_res[0]['SUM'] or 0.0)
-        
-        devolucoes_ontem_res = await execute_query_via_agent(company_cnpj, f"SELECT SUM(CAST(VALORLIQUIDO AS DOUBLE PRECISION)) {base_query}", [ontem, 'DV', id_empresa])
-        if devolucoes_ontem_res: data['devolucoes_ontem'] = float(devolucoes_ontem_res[0]['SUM'] or 0.0)
-
-        sql_lucro_dia = """
-            SELECT SUM(CASE 
-                         WHEN p.TIPOVENDA = 'NM' THEN (CAST(i.VLRLIQUIDO AS DOUBLE PRECISION) - (CAST(i.QTDE AS DOUBLE PRECISION) * CAST(i.CUSTOFINAL AS DOUBLE PRECISION))) 
-                         WHEN p.TIPOVENDA = 'DV' THEN -(CAST(i.VLRLIQUIDO AS DOUBLE PRECISION) - (CAST(i.QTDE AS DOUBLE PRECISION) * CAST(i.CUSTOFINAL AS DOUBLE PRECISION))) 
-                         ELSE 0 
-                       END)
-            FROM TVENPEDIDO p JOIN TVENPRODUTO i ON p.CODIGO = i.PEDIDO AND p.EMPRESA = i.EMPRESA
-            WHERE p.DATAEFE = ? AND p.STATUS = 'EFE' AND p.TIPOVENDA IN ('NM', 'DV') AND p.EMPRESA = ?
-        """
-        lucro_hoje_res = await execute_query_via_agent(company_cnpj, sql_lucro_dia, [hoje, id_empresa])
-        if lucro_hoje_res: data['lucro_hoje'] = float(lucro_hoje_res[0]['SUM'] or 0.0)
-        
-        lucro_ontem_res = await execute_query_via_agent(company_cnpj, sql_lucro_dia, [ontem, id_empresa])
-        if lucro_ontem_res: data['lucro_ontem'] = float(lucro_ontem_res[0]['SUM'] or 0.0)
-        
         return data
     except Exception as e:
         if isinstance(e, HTTPException): raise e
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Erro ao buscar KPIs do dashboard: {e}")
 
 @router.get("/daily-sales")
 async def get_daily_sales(days: int = 7, empresa_info: EmpresaInfo = Depends(verificar_empresa), id_empresa: str = Depends(get_company_fk)):

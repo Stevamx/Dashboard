@@ -3,6 +3,7 @@
     let tvModeInterval = null;
     const VENDORS_STORAGE_KEY = 'dashboardVendorsSelection';
 
+    // ... (as outras funções 'updateKpiCards', 'renderMonthlyPerformanceChart', etc. continuam iguais) ...
     function updateKpiCards(data) {
         document.getElementById('kpi-vendas-hoje').textContent = formatCurrencyAbbreviated(data.vendas_hoje);
         document.getElementById('kpi-pedidos-hoje').textContent = data.pedidos_hoje;
@@ -115,25 +116,28 @@
         }
     }
 
-    // ### FUNÇÃO ALTERADA ###
+    // ### FUNÇÃO ALTERADA E OTIMIZADA ###
     async function loadDashboardData() {
+        // A verificação !document.hidden garante que as atualizações automáticas
+        // não ocorram se a aba do navegador não estiver visível.
         if (!document.hidden) {
             try {
-                // Em vez de carregar tudo em paralelo com Promise.all,
-                // vamos carregar um por um, de forma sequencial.
-                // Isso dá tempo para o servidor do Render "acordar" e estabilizar.
+                // As pausas (delay) foram removidas. Com o backend otimizado,
+                // as chamadas podem ser feitas em paralelo para carregar o dashboard mais rápido.
+                const [kpiData, monthlyPerformance, metasProgressData] = await Promise.all([
+                    fazerRequisicaoAutenticada(`${API_BASE_URL}/dashboard/kpis`),
+                    fazerRequisicaoAutenticada(`${API_BASE_URL}/dashboard/monthly-performance`),
+                    fazerRequisicaoAutenticada(`${API_BASE_URL}/dashboard/metas-progress`)
+                ]);
 
-                const kpiData = await fazerRequisicaoAutenticada(`${API_BASE_URL}/dashboard/kpis`);
+                // As funções de renderização são chamadas após a conclusão de todas as requisições.
                 if (kpiData) updateKpiCards(kpiData);
-
-                const monthlyPerformance = await fazerRequisicaoAutenticada(`${API_BASE_URL}/dashboard/monthly-performance`);
                 if (monthlyPerformance) renderMonthlyPerformanceChart(monthlyPerformance);
-
-                const metasProgressData = await fazerRequisicaoAutenticada(`${API_BASE_URL}/dashboard/metas-progress`);
                 if (metasProgressData) renderMetasProgress(metasProgressData);
                 
             } catch (error) { 
                 console.error("Falha ao carregar dados do dashboard:", error); 
+                // A lógica de desativar o modo TV, se existir, é mantida.
                 if(tvModeInterval) deactivateTvMode();
             }
         }
