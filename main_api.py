@@ -10,7 +10,7 @@ import os
 import asyncio
 import uuid
 from datetime import date, datetime
-from contextlib import asynccontextmanager # ### CORREÇÃO: Importa o gerenciador de contexto
+from contextlib import asynccontextmanager
 
 # ### CORREÇÃO: A inicialização do Firebase foi movida para dentro da função 'lifespan' ###
 
@@ -52,15 +52,20 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
+# --- FUNÇÃO CORRIGIDA ---
 async def execute_query_via_agent(company_cnpj: str, sql: str, params: list = []):
     """
     Envia uma consulta SQL para o agente local e aguarda o resultado.
+    Agora inclui uma espera de até 3 segundos pela conexão do agente.
     """
+    # Tenta por até 3 segundos (30 * 0.1s) encontrar o agente conectado.
+    # Isso adiciona resiliência contra pequenas desconexões ou reinicializações do agente.
     for _ in range(30):
         if await manager.is_connected(company_cnpj):
             break
         await asyncio.sleep(0.1)
     else:
+        # Se o loop terminar sem encontrar o agente, lança o erro.
         raise HTTPException(status_code=404, detail=f"O agente local para a empresa não está conectado. Verifique se o agente está em execução no servidor do cliente.")
 
     task_id = str(uuid.uuid4())
@@ -68,11 +73,13 @@ async def execute_query_via_agent(company_cnpj: str, sql: str, params: list = []
     
     await manager.send_message(company_cnpj, json.dumps(payload, default=json_converter))
 
+    # Espera até 20 segundos pela resposta da tarefa
     for _ in range(200):
         if task_id in task_results:
             result = task_results.pop(task_id)
             if result.get("status") == "erro":
                 error_message = str(result.get('mensagem', 'Erro desconhecido.'))
+                # Pega apenas a primeira linha do erro para não poluir a interface
                 simple_error = error_message.split('\n')[0]
                 raise HTTPException(status_code=400, detail=f"Erro no agente local: {simple_error}")
             return result.get("dados", [])
@@ -87,18 +94,15 @@ from routers import (
     company_data
 )
 
-# ### CORREÇÃO: Função 'lifespan' para inicializar o Firebase uma única vez ###
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Código a ser executado na inicialização
     try:
         CREDENTIALS_FILE = "firebase-service-account.json"
         if not os.path.exists(CREDENTIALS_FILE):
-            # Em produção, um erro aqui deve parar a aplicação
             raise FileNotFoundError(f"Arquivo de credenciais '{CREDENTIALS_FILE}' não encontrado.")
         
         cred = credentials.Certificate(CREDENTIALS_FILE)
-        # Verifica se o app já não foi inicializado
         if not firebase_admin._apps:
             firebase_admin.initialize_app(cred, {
                 'databaseURL': 'https://dashboard-e66b8-default-rtdb.firebaseio.com/'
@@ -108,15 +112,12 @@ async def lifespan(app: FastAPI):
             print("Firebase Admin SDK já estava inicializado.")
     except Exception as e:
         print(f"ERRO CRÍTICO ao inicializar Firebase Admin SDK: {e}")
-        # É importante parar a aplicação se o Firebase não puder ser iniciado
-        # Em um ambiente de produção real, você pode querer um sistema de alerta aqui.
     
     yield
     # Código a ser executado no encerramento (se necessário)
     print("Encerrando a aplicação.")
 
 
-# ### CORREÇÃO: Passa a função 'lifespan' para o FastAPI ###
 app = FastAPI(title="Dashboard de Vendas API", lifespan=lifespan)
 
 
