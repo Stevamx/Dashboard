@@ -35,7 +35,6 @@ async def execute_query_via_agent(company_cnpj: str, sql: str, params: list = []
     payload = {"id_tarefa": task_id, "acao": "query", "parametros": {"sql": sql, "params": params}}
     
     try:
-        # A versão 1.0.1 usa 'data' como argumento nomeado para o json
         await pubsub_client.publish([f"agent:{company_cnpj}"], data=json.dumps(payload, default=json_converter))
         result = await asyncio.wait_for(future, timeout=20.0)
         
@@ -61,29 +60,33 @@ from routers import (
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global pubsub_client
-    # ### CORREÇÃO APLICADA AQUI ###
-    # A inicialização correta para a v1.0.1 exige que o broadcaster seja iniciado
-    # e depois passado para o cliente PubSub.
+    # ### CORREÇÃO DEFINITIVA APLICADA AQUI ###
+    # A inicialização correta exige que o broadcaster seja iniciado como uma tarefa de fundo.
     redis_connection = redis.from_url(REDIS_URL, decode_responses=True)
-    pubsub_client = PubSubClient()
-    # O método 'start_broadcaster' é o correto para a v1.0.1
-    await pubsub_client.start_broadcaster(broadcaster=redis_connection)
+    pubsub_client = PubSubClient(broadcaster=redis_connection)
+    
+    # Inicia o "ouvinte" do Redis como uma tarefa de fundo
+    broadcaster_task = asyncio.create_task(pubsub_client.broadcaster.listen())
+    print("Broadcaster do Redis iniciado em segundo plano.")
     
     try:
+        # Inicializa o Firebase
         cred = credentials.Certificate("firebase-service-account.json")
         if not firebase_admin._apps:
             firebase_admin.initialize_app(cred, {
                 'databaseURL': 'https://dashboard-e66b8-default-rtdb.firebaseio.com/'
             })
             print("Firebase Admin SDK inicializado com sucesso.")
-    except Exception as e:
-        print(f"ERRO CRÍTICO ao inicializar Firebase Admin SDK: {e}")
-    
-    yield
-    
-    # --- ENCERRAMENTO ---
-    await redis_connection.close()
-    print("Conexão com Redis fechada e aplicação encerrando.")
+        
+        # A aplicação roda aqui
+        yield
+        
+    finally:
+        # Garante que as tarefas e conexões sejam encerradas corretamente
+        print("Encerrando a aplicação...")
+        broadcaster_task.cancel()
+        await redis_connection.close()
+        print("Conexão com Redis fechada.")
 
 app = FastAPI(title="Dashboard de Vendas API", lifespan=lifespan)
 
