@@ -1,5 +1,5 @@
 # database.py
-import fdb
+import firebird.driver as fdb # <-- CORREÇÃO AQUI
 import configparser
 import sys
 import os
@@ -23,7 +23,6 @@ def connect():
         return None
 
     try:
-        # print("Tentando conectar ao banco de dados (usando config.ini)...")
         conn = fdb.connect(
             host=db_config.get('host', 'localhost'),
             port=db_config.getint('port', 3050),
@@ -32,7 +31,6 @@ def connect():
             password=db_config.get('password', ''),
             charset=db_config.get('charset', 'WIN1252')
         )
-        # print("Conexão com o Firebird estabelecida com sucesso!")
         return conn
     except fdb.Error as e:
         print(f"Erro ao conectar ao Firebird: {e}", file=sys.stderr)
@@ -56,8 +54,6 @@ def get_company_id_by_cnpj(cnpj: str) -> int | None:
     
     try:
         cur = conn.cursor()
-        # --- CORREÇÃO APLICADA AQUI ---
-        # Trocado 'ID_EMPRESA' por 'CODIGO', que é o nome mais provável da coluna.
         cur.execute("SELECT CODIGO FROM TGEREMPRESA WHERE CPFCNPJ = ?", (cnpj_limpo,))
         row = cur.fetchone()
         
@@ -69,5 +65,4 @@ def get_company_id_by_cnpj(cnpj: str) -> int | None:
     except fdb.Error as e:
         print(f"Erro de banco de dados ao buscar ID da empresa: {e}", file=sys.stderr)
         conn.close()
-        # Retorna None para que a dependência possa tratar como empresa não encontrada.
         return None
