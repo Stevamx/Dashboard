@@ -118,23 +118,24 @@ async def read_metas_page(): return "static/metas.html"
 @app.get("/tv", response_class=FileResponse, include_in_schema=False)
 async def read_tv_page(): return "static/tv.html"
 
-# ### ENDPOINT WEBSOCKET CORRIGIDO E FINAL ###
+# ### ENDPOINT WEBSOCKET CORRIGIDO FINAL ###
 @app.websocket("/ws/{company_id}")
 async def websocket_endpoint(websocket: WebSocket, company_id: str):
+    # ### CORREÇÃO APLICADA AQUI: A linha do 'accept' foi adicionada de volta ###
+    await websocket.accept()
+    
     await pubsub_client.subscribe(websocket, [f"agent:{company_id}"])
     try:
         print(f"INFO: Agente da empresa '{company_id}' conectou e se inscreveu no canal.")
         while True:
-            # Espera por mensagens do agente e as publica para os workers
             data = await websocket.receive_text()
             message = json.loads(data)
             await pubsub_client.publish_response(f"agent:{company_id}", message)
+            
     except WebSocketDisconnect:
         print(f"INFO: Agente da empresa '{company_id}' desconectou.")
     except Exception as e:
         print(f"ERRO no endpoint websocket para '{company_id}': {e}")
     finally:
-        # ### CORREÇÃO APLICADA AQUI ###
-        # A versão 1.0.1 do unsubscribe() só precisa do objeto websocket.
         await pubsub_client.unsubscribe(websocket)
         print(f"INFO: Agente '{company_id}' removido da inscrição.")
