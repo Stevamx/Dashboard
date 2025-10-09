@@ -70,10 +70,6 @@ async def lifespan(app: FastAPI):
     global pubsub_client
     # --- INICIALIZAÇÃO ---
     redis_connection = redis.from_url(REDIS_URL, decode_responses=True)
-    
-    # ### CORREÇÃO APLICADA AQUI ###
-    # A versão 1.0.1 da biblioteca inicializa o broadcaster diretamente no construtor,
-    # e não possui o método .startup().
     pubsub_client = PubSubClient(broadcaster=redis_connection)
     
     try:
@@ -122,32 +118,23 @@ async def read_metas_page(): return "static/metas.html"
 @app.get("/tv", response_class=FileResponse, include_in_schema=False)
 async def read_tv_page(): return "static/tv.html"
 
-# ### ENDPOINT WEBSOCKET AJUSTADO ###
-# A versão 1.0.1 da biblioteca usa subscribe e publish em vez de tracker.
+# ### ENDPOINT WEBSOCKET CORRIGIDO E FINAL ###
 @app.websocket("/ws/{company_id}")
 async def websocket_endpoint(websocket: WebSocket, company_id: str):
     await pubsub_client.subscribe(websocket, [f"agent:{company_id}"])
-    print(f"INFO: Agente da empresa '{company_id}' conectou e se inscreveu no canal.")
     try:
-        # A versão 1.0.1 não tem um "tracker", então o loop é mais direto
+        print(f"INFO: Agente da empresa '{company_id}' conectou e se inscreveu no canal.")
         while True:
+            # Espera por mensagens do agente e as publica para os workers
             data = await websocket.receive_text()
             message = json.loads(data)
-
-            # Responde ao ping para se manter "vivo"
-            if message.get("action") == "ping":
-                response = json.dumps({"id": message["id"], "response": "pong"})
-                await websocket.send_text(response)
-                continue
-            
-            # Publica respostas de tarefas para o worker que solicitou
-            if "id_tarefa" in message:
-                await pubsub_client.publish_response(f"agent:{company_id}", message)
-
+            await pubsub_client.publish_response(f"agent:{company_id}", message)
     except WebSocketDisconnect:
         print(f"INFO: Agente da empresa '{company_id}' desconectou.")
     except Exception as e:
         print(f"ERRO no endpoint websocket para '{company_id}': {e}")
     finally:
-        # Garante que a inscrição seja removida ao desconectar
-        await pubsub_client.unsubscribe(websocket, [f"agent:{company_id}"])
+        # ### CORREÇÃO APLICADA AQUI ###
+        # A versão 1.0.1 do unsubscribe() só precisa do objeto websocket.
+        await pubsub_client.unsubscribe(websocket)
+        print(f"INFO: Agente '{company_id}' removido da inscrição.")
