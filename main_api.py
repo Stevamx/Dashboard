@@ -11,7 +11,7 @@ import asyncio
 import uuid
 from datetime import date, datetime
 from contextlib import asynccontextmanager
-from websockets_pubsub import PubSubClient
+from websocket_pubsub import PubSubClient
 import redis.asyncio as redis
 
 # --- CONFIGURAÇÃO ---
