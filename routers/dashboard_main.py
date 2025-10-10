@@ -18,7 +18,6 @@ router = APIRouter(
 def validate_dashboard_connection(empresa_info: EmpresaInfo = Depends(verificar_empresa)):
     return {"status": "ok", "message": "A conexão com a empresa foi validada com sucesso."}
 
-# ### FUNÇÃO TOTALMENTE REESCRITA E OTIMIZADA ###
 @router.get("/kpis")
 async def get_dashboard_kpis(empresa_info: EmpresaInfo = Depends(verificar_empresa), id_empresa: str = Depends(get_company_fk)):
     try:
@@ -28,8 +27,7 @@ async def get_dashboard_kpis(empresa_info: EmpresaInfo = Depends(verificar_empre
         mes_atual_dt = datetime.now()
         mes_passado_dt = mes_atual_dt - relativedelta(months=1)
 
-        # Esta única consulta SQL agora calcula TODOS os KPIs de uma vez.
-        sql_otimizada = """
+        sql_otimizada_kpis = """
             SELECT
                 SUM(CASE WHEN p.DATAEFE = ? AND p.TIPOVENDA = 'NM' THEN CAST(p.VALORLIQUIDO AS DOUBLE PRECISION) ELSE 0 END) as VENDAS_HOJE,
                 SUM(CASE WHEN p.DATAEFE = ? AND p.TIPOVENDA = 'NM' THEN CAST(p.VALORLIQUIDO AS DOUBLE PRECISION) ELSE 0 END) as VENDAS_ONTEM,
@@ -53,19 +51,21 @@ async def get_dashboard_kpis(empresa_info: EmpresaInfo = Depends(verificar_empre
                 )
         """
         
-        params = [
-            hoje, ontem,  # Vendas
-            hoje, ontem,  # Pedidos
-            hoje, ontem,  # Devoluções
-            mes_atual_dt.year, mes_atual_dt.month, # Receita Atual
-            mes_passado_dt.year, mes_passado_dt.month, # Receita Passada
-            id_empresa, # Filtro principal de empresa
-            hoje, ontem, # Filtro de datas no WHERE
-            mes_atual_dt.year, mes_atual_dt.month,
-            mes_passado_dt.year, mes_passado_dt.month
+        # ### CORREÇÃO APLICADA AQUI ###
+        # A lista de parâmetros foi corrigida para corresponder à ordem exata dos '?' na consulta.
+        params_kpis = [
+            hoje, ontem,  # Para VENDAS_HOJE, VENDAS_ONTEM
+            hoje, ontem,  # Para PEDIDOS_HOJE, PEDIDOS_ONTEM
+            hoje, ontem,  # Para DEVOLUCOES_HOJE, DEVOLUCOES_ONTEM
+            mes_atual_dt.year, mes_atual_dt.month,   # Para RECEITA_MES_ATUAL
+            mes_passado_dt.year, mes_passado_dt.month, # Para RECEITA_MES_PASSADO
+            id_empresa,                               # Para p.EMPRESA = ?
+            hoje, ontem,                               # Para p.DATAEFE IN (?, ?)
+            mes_atual_dt.year, mes_atual_dt.month,   # Para o primeiro OR
+            mes_passado_dt.year, mes_passado_dt.month  # Para o segundo OR
         ]
         
-        kpi_res = await execute_query_via_agent(company_cnpj, sql_otimizada, params)
+        kpi_res = await execute_query_via_agent(company_cnpj, sql_otimizada_kpis, params_kpis)
 
         data = {
             "vendas_hoje": 0.0, "vendas_ontem": 0.0, "pedidos_hoje": 0, "pedidos_ontem": 0,
@@ -86,7 +86,6 @@ async def get_dashboard_kpis(empresa_info: EmpresaInfo = Depends(verificar_empre
                 "receita_mensal_passado": float(res.get('RECEITA_MES_PASSADO') or 0.0),
             })
 
-        # O cálculo do lucro ainda precisa de uma consulta separada por causa do JOIN
         sql_lucro_dia = """
             SELECT
                 SUM(CASE WHEN p.DATAEFE = ? THEN (CAST(i.VLRLIQUIDO AS DOUBLE PRECISION) - (CAST(i.QTDE AS DOUBLE PRECISION) * CAST(i.CUSTOFINAL AS DOUBLE PRECISION))) ELSE 0 END) as LUCRO_HOJE,
@@ -202,7 +201,7 @@ async def get_metas_progress(empresa_info: EmpresaInfo = Depends(verificar_empre
             valor_meta = float(meta['VALOR'] or 0.0)
             
             if indicador == "FATURAMENTO_MENSAL":
-                sql_progresso = "SELECT SUM(CAST(VALORLIQUIDO AS DOUBLE PRECISION)) AS TOTAL FROM TVENPEDIDO WHERE STATUS = 'EFE' AND TIPOVENDA = 'NM' AND EXTRACT(YEAR FROM DATAEFE) = ? AND EXTRACT(MONTH FROM DATAEFE) = ? AND EMPRESA = ?"
+                sql_progresso = "SELECT SUM(CAST(VALORLIQUIDO AS DOUBLE PRECISION)) AS TOTAL FROM TVENPEDIDO WHERE STATUS = 'EFE' AND TIPOVENDA = 'NM' AND EXTRACT(YEAR FROM p.DATAEFE) = ? AND EXTRACT(MONTH FROM p.DATAEFE) = ? AND EMPRESA = ?"
                 progresso_res = await execute_query_via_agent(empresa_info.company_id, sql_progresso, [today.year, today.month, id_empresa])
                 
                 progresso_atual = float(progresso_res[0]['TOTAL'] or 0.0) if progresso_res else 0.0
