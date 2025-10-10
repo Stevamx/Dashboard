@@ -51,18 +51,16 @@ async def get_dashboard_kpis(empresa_info: EmpresaInfo = Depends(verificar_empre
                 )
         """
         
-        # ### CORREÇÃO APLICADA AQUI ###
-        # A lista de parâmetros foi corrigida para corresponder à ordem exata dos '?' na consulta.
         params_kpis = [
-            hoje, ontem,  # Para VENDAS_HOJE, VENDAS_ONTEM
-            hoje, ontem,  # Para PEDIDOS_HOJE, PEDIDOS_ONTEM
-            hoje, ontem,  # Para DEVOLUCOES_HOJE, DEVOLUCOES_ONTEM
-            mes_atual_dt.year, mes_atual_dt.month,   # Para RECEITA_MES_ATUAL
-            mes_passado_dt.year, mes_passado_dt.month, # Para RECEITA_MES_PASSADO
-            id_empresa,                               # Para p.EMPRESA = ?
-            hoje, ontem,                               # Para p.DATAEFE IN (?, ?)
-            mes_atual_dt.year, mes_atual_dt.month,   # Para o primeiro OR
-            mes_passado_dt.year, mes_passado_dt.month  # Para o segundo OR
+            hoje, ontem,
+            hoje, ontem,
+            hoje, ontem,
+            mes_atual_dt.year, mes_atual_dt.month,
+            mes_passado_dt.year, mes_passado_dt.month,
+            id_empresa,
+            hoje, ontem,
+            mes_atual_dt.year, mes_atual_dt.month,
+            mes_passado_dt.year, mes_passado_dt.month
         ]
         
         kpi_res = await execute_query_via_agent(company_cnpj, sql_otimizada_kpis, params_kpis)
@@ -201,7 +199,9 @@ async def get_metas_progress(empresa_info: EmpresaInfo = Depends(verificar_empre
             valor_meta = float(meta['VALOR'] or 0.0)
             
             if indicador == "FATURAMENTO_MENSAL":
-                sql_progresso = "SELECT SUM(CAST(VALORLIQUIDO AS DOUBLE PRECISION)) AS TOTAL FROM TVENPEDIDO WHERE STATUS = 'EFE' AND TIPOVENDA = 'NM' AND EXTRACT(YEAR FROM p.DATAEFE) = ? AND EXTRACT(MONTH FROM p.DATAEFE) = ? AND EMPRESA = ?"
+                # ### CORREÇÃO APLICADA AQUI ###
+                # Adicionado o alias 'p' para a tabela TVENPEDIDO para corrigir o erro 'Column unknown P.DATAEFE'.
+                sql_progresso = "SELECT SUM(CAST(VALORLIQUIDO AS DOUBLE PRECISION)) AS TOTAL FROM TVENPEDIDO p WHERE STATUS = 'EFE' AND TIPOVENDA = 'NM' AND EXTRACT(YEAR FROM p.DATAEFE) = ? AND EXTRACT(MONTH FROM p.DATAEFE) = ? AND EMPRESA = ?"
                 progresso_res = await execute_query_via_agent(empresa_info.company_id, sql_progresso, [today.year, today.month, id_empresa])
                 
                 progresso_atual = float(progresso_res[0]['TOTAL'] or 0.0) if progresso_res else 0.0
