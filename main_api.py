@@ -27,45 +27,67 @@ def json_converter(o):
         return o.isoformat()
 
 async def execute_query_via_agent(company_cnpj: str, sql: str, params: list = []):
+    """
+    *** FUNÇÃO CORRIGIDA E MAIS ROBUSTA ***
+    Envia uma consulta para o agente local através do Redis Pub/Sub
+    e aguarda a resposta.
+    """
     task_id = str(uuid.uuid4())
     loop = asyncio.get_running_loop()
     future = loop.create_future()
     tasks[task_id] = future
 
     payload = {"id_tarefa": task_id, "acao": "query", "parametros": {"sql": sql, "params": params}}
-    
+
     try:
+        # --- CORREÇÃO APLICADA AQUI ---
+        # Garante que o cliente PubSub está inicializado e rodando antes de publicar.
+        if not pubsub_client or not pubsub_client.is_running:
+            raise ConnectionError("O serviço de mensagens (PubSub) não está conectado.")
+
         await pubsub_client.publish([f"agent:{company_cnpj}"], data=json.dumps(payload, default=json_converter))
         result = await asyncio.wait_for(future, timeout=20.0)
-        
+
         if result.get("status") == "erro":
             error_message = str(result.get('mensagem', 'Erro desconhecido.'))
             simple_error = error_message.split('\n')[0]
             raise HTTPException(status_code=400, detail=f"Erro no agente local: {simple_error}")
-        
+
         return result.get("dados", [])
-        
+
     except asyncio.TimeoutError:
         raise HTTPException(status_code=408, detail="O agente local demorou muito para responder (timeout).")
+    except ConnectionError as e:
+        # Captura o novo erro de conexão e retorna um status mais apropriado (Service Unavailable)
+        raise HTTPException(status_code=503, detail=str(e))
     finally:
         tasks.pop(task_id, None)
 
 # --- IMPORTAÇÃO DOS ROTEADORES ---
 from routers import (
-    dashboard_main, dashboard_vendas, dashboard_estoque, luca_ai, 
+    dashboard_main, dashboard_vendas, dashboard_estoque, luca_ai,
     user_data, settings_panel, admin_tools, metas_panel,
     company_data
 )
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """
+    *** FUNÇÃO LIFESPAN TOTALMENTE CORRIGIDA ***
+    Gerencia o ciclo de vida da aplicação, garantindo que o cliente PubSub
+    inicie e pare corretamente.
+    """
     global pubsub_client
-    # ### CORREÇÃO DEFINITIVA ###
-    # O método 'listen' está no próprio cliente, não em um atributo 'broadcaster'.
+    
+    # 1. Cria a conexão e o cliente
     redis_connection = redis.from_url(REDIS_URL, decode_responses=True)
     pubsub_client = PubSubClient(broadcaster=redis_connection)
     
-    # Inicia o "ouvinte" do Redis como uma tarefa de fundo
+    # 2. Inicia o cliente explicitamente (PASSO CRÍTICO FALTANTE)
+    await pubsub_client.start()
+    print("Cliente PubSub iniciado e conectado ao Redis.")
+    
+    # 3. Inicia o "ouvinte" como tarefa de fundo
     listener_task = asyncio.create_task(pubsub_client.listen())
     print("Listener do PubSub iniciado em segundo plano.")
     
@@ -84,9 +106,12 @@ async def lifespan(app: FastAPI):
     finally:
         # Garante que as tarefas e conexões sejam encerradas corretamente
         print("Encerrando a aplicação...")
-        listener_task.cancel()
-        await redis_connection.close()
-        print("Conexão com Redis fechada.")
+        if not listener_task.done():
+            listener_task.cancel()
+        
+        # 4. Para o cliente de forma limpa
+        await pubsub_client.stop()
+        print("Cliente PubSub e conexão com Redis fechados.")
 
 app = FastAPI(title="Dashboard de Vendas API", lifespan=lifespan)
 
