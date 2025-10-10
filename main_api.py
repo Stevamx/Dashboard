@@ -19,7 +19,6 @@ from urllib.parse import urlparse
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost")
 
 tasks: Dict[str, asyncio.Future] = {}
-# A variável 'pubsub_client' foi removida. Usaremos a conexão direta do Redis.
 redis_connection: redis.Redis = None
 
 # --- LÓGICA DA APLICAÇÃO ---
@@ -40,8 +39,6 @@ async def execute_query_via_agent(company_cnpj: str, sql: str, params: list = []
         if redis_connection is None:
             raise ConnectionError("A conexão com o Redis não foi inicializada.")
 
-        # --- MUDANÇA PRINCIPAL: De 'publish' para 'rpush' ---
-        # Adiciona a tarefa na fila do agente específico.
         await redis_connection.rpush(f"queue:{company_cnpj}", payload_str)
         
         result = await asyncio.wait_for(future, timeout=20.0)
@@ -100,35 +97,39 @@ app = FastAPI(title="Dashboard de Vendas API", lifespan=lifespan)
 async def health_check():
     return JSONResponse(content={"status": "ok"})
 
-# --- MUDANÇA PRINCIPAL: Nova lógica do WebSocket ---
+# --- MUDANÇA PRINCIPAL: Lógica do WebSocket com reconexão ---
 
 async def redis_listener(websocket: WebSocket, company_id: str):
-    """Uma tarefa de fundo que escuta a fila do Redis para um agente específico."""
+    """Uma tarefa de fundo que escuta a fila do Redis e se reconecta se necessário."""
     global redis_connection
     print(f"INFO: Listener da fila 'queue:{company_id}' iniciado.")
-    try:
-        while True:
-            # blpop espera eficientemente por uma nova mensagem na lista (fila)
-            message = await redis_connection.blpop(f"queue:{company_id}")
-            if message:
-                # message é uma tupla (nome_da_lista, conteudo), pegamos o conteúdo
-                await websocket.send_text(message[1])
-    except asyncio.CancelledError:
-        # Isso acontece quando o agente desconecta e a tarefa é cancelada
-        print(f"INFO: Listener para '{company_id}' foi cancelado.")
-    except Exception as e:
-        print(f"ERRO CRÍTICO no listener do Redis para '{company_id}': {e}")
+    
+    while True: # Loop de reconexão
+        try:
+            while True: # Loop de escuta
+                # Usamos um timeout no blpop para que a conexão não fique ociosa por muito tempo
+                message = await redis_connection.blpop(f"queue:{company_id}", timeout=240)
+                if message:
+                    await websocket.send_text(message[1])
+
+        except asyncio.CancelledError:
+            print(f"INFO: Listener para '{company_id}' foi cancelado.")
+            break # Sai do loop de reconexão se a tarefa for cancelada
+        except redis.exceptions.ConnectionError as e:
+            print(f"AVISO: Conexão do listener com Redis perdida: {e}. Tentando reconectar em 5 segundos...")
+            await asyncio.sleep(5)
+        except Exception as e:
+            print(f"ERRO CRÍTICO no listener do Redis para '{company_id}': {e}. Tentando reconectar em 5 segundos...")
+            await asyncio.sleep(5)
 
 
 @app.websocket("/ws/{company_id}")
 async def websocket_endpoint(websocket: WebSocket, company_id: str):
     await websocket.accept()
     
-    # Cria e inicia a tarefa de fundo que escuta o Redis para este agente
     listener_task = asyncio.create_task(redis_listener(websocket, company_id))
     
     try:
-        # Este loop agora só lida com as respostas que vêm do agente
         while True:
             data = await websocket.receive_text()
             message = json.loads(data)
@@ -141,10 +142,8 @@ async def websocket_endpoint(websocket: WebSocket, company_id: str):
     except WebSocketDisconnect:
         print(f"INFO: Agente da empresa '{company_id}' desconectou.")
     finally:
-        # Se o agente desconectar, é crucial cancelar a tarefa de fundo
         listener_task.cancel()
         print(f"INFO: Listener da fila para '{company_id}' finalizado.")
-
 
 # O restante do arquivo permanece igual
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
