@@ -28,7 +28,7 @@ def json_converter(o):
 
 async def execute_query_via_agent(company_cnpj: str, sql: str, params: list = []):
     """
-    *** FUNÇÃO CORRIGIDA E MAIS ROBUSTA ***
+    *** FUNÇÃO AJUSTADA PARA MAIOR ROBUSTEZ ***
     Envia uma consulta para o agente local através do Redis Pub/Sub
     e aguarda a resposta.
     """
@@ -40,10 +40,9 @@ async def execute_query_via_agent(company_cnpj: str, sql: str, params: list = []
     payload = {"id_tarefa": task_id, "acao": "query", "parametros": {"sql": sql, "params": params}}
 
     try:
-        # --- CORREÇÃO APLICADA AQUI ---
-        # Garante que o cliente PubSub está inicializado e rodando antes de publicar.
-        if not pubsub_client or not pubsub_client.is_running:
-            raise ConnectionError("O serviço de mensagens (PubSub) não está conectado.")
+        # Verificação simples para garantir que o cliente foi instanciado no startup.
+        if pubsub_client is None:
+            raise ConnectionError("O serviço de mensagens (PubSub) não foi inicializado.")
 
         await pubsub_client.publish([f"agent:{company_cnpj}"], data=json.dumps(payload, default=json_converter))
         result = await asyncio.wait_for(future, timeout=20.0)
@@ -58,7 +57,6 @@ async def execute_query_via_agent(company_cnpj: str, sql: str, params: list = []
     except asyncio.TimeoutError:
         raise HTTPException(status_code=408, detail="O agente local demorou muito para responder (timeout).")
     except ConnectionError as e:
-        # Captura o novo erro de conexão e retorna um status mais apropriado (Service Unavailable)
         raise HTTPException(status_code=503, detail=str(e))
     finally:
         tasks.pop(task_id, None)
@@ -73,25 +71,29 @@ from routers import (
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
-    *** FUNÇÃO LIFESPAN TOTALMENTE CORRIGIDA ***
-    Gerencia o ciclo de vida da aplicação, garantindo que o cliente PubSub
-    inicie e pare corretamente.
+    *** FUNÇÃO LIFESPAN COM A SOLUÇÃO DEFINITIVA ***
+    Gerencia o ciclo de vida da aplicação, verificando a conexão com o Redis
+    antes de inicializar os componentes dependentes.
     """
     global pubsub_client
     
-    # 1. Cria a conexão e o cliente
     redis_connection = redis.from_url(REDIS_URL, decode_responses=True)
-    pubsub_client = PubSubClient(broadcaster=redis_connection)
-    
-    # 2. Inicia o cliente explicitamente (PASSO CRÍTICO FALTANTE)
-    await pubsub_client.start()
-    print("Cliente PubSub iniciado e conectado ao Redis.")
-    
-    # 3. Inicia o "ouvinte" como tarefa de fundo
-    listener_task = asyncio.create_task(pubsub_client.listen())
-    print("Listener do PubSub iniciado em segundo plano.")
+    listener_task = None
     
     try:
+        # 1. *** SOLUÇÃO ROBUSTA ***
+        # Força a conexão e verifica se está ativa com um comando PING.
+        # Isso garante que a conexão com o Redis está 100% pronta.
+        await redis_connection.ping()
+        print("Conexão com Redis estabelecida e verificada com sucesso.")
+
+        # 2. Instancia o cliente PubSub APÓS a conexão ser verificada
+        pubsub_client = PubSubClient(broadcaster=redis_connection)
+    
+        # 3. Inicia o "ouvinte" como tarefa de fundo
+        listener_task = asyncio.create_task(pubsub_client.listen())
+        print("Listener do PubSub iniciado em segundo plano.")
+        
         # Inicializa o Firebase
         cred = credentials.Certificate("firebase-service-account.json")
         if not firebase_admin._apps:
@@ -104,14 +106,13 @@ async def lifespan(app: FastAPI):
         yield
         
     finally:
-        # Garante que as tarefas e conexões sejam encerradas corretamente
         print("Encerrando a aplicação...")
-        if not listener_task.done():
+        if listener_task and not listener_task.done():
             listener_task.cancel()
         
-        # 4. Para o cliente de forma limpa
-        await pubsub_client.stop()
-        print("Cliente PubSub e conexão com Redis fechados.")
+        if redis_connection:
+            await redis_connection.close()
+            print("Conexão com Redis fechada.")
 
 app = FastAPI(title="Dashboard de Vendas API", lifespan=lifespan)
 
