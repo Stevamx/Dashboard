@@ -14,6 +14,7 @@ from contextlib import asynccontextmanager
 from fastapi_websocket_pubsub import PubSubClient
 import redis.asyncio as redis
 from typing import Dict
+from urllib.parse import urlparse # <-- Importe esta biblioteca
 
 # --- CONFIGURAÇÃO ---
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost")
@@ -27,11 +28,6 @@ def json_converter(o):
         return o.isoformat()
 
 async def execute_query_via_agent(company_cnpj: str, sql: str, params: list = []):
-    """
-    *** FUNÇÃO AJUSTADA PARA MAIOR ROBUSTEZ ***
-    Envia uma consulta para o agente local através do Redis Pub/Sub
-    e aguarda a resposta.
-    """
     task_id = str(uuid.uuid4())
     loop = asyncio.get_running_loop()
     future = loop.create_future()
@@ -40,7 +36,6 @@ async def execute_query_via_agent(company_cnpj: str, sql: str, params: list = []
     payload = {"id_tarefa": task_id, "acao": "query", "parametros": {"sql": sql, "params": params}}
 
     try:
-        # Verificação simples para garantir que o cliente foi instanciado no startup.
         if pubsub_client is None:
             raise ConnectionError("O serviço de mensagens (PubSub) não foi inicializado.")
 
@@ -70,52 +65,52 @@ from routers import (
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """
-    *** FUNÇÃO LIFESPAN COM A SOLUÇÃO DEFINITIVA ***
-    Gerencia o ciclo de vida da aplicação, verificando a conexão com o Redis
-    antes de inicializar os componentes dependentes.
-    """
     global pubsub_client
     
+    # --- MELHORIA PARA DEBUG ---
+    # Imprime a URL do Redis que está sendo usada, para facilitar a depuração.
+    # A senha é omitida dos logs por segurança.
+    try:
+        parsed_url = urlparse(REDIS_URL)
+        safe_display_url = parsed_url._replace(netloc=f"{parsed_url.username or ''}:{'******' if parsed_url.password else ''}@{parsed_url.hostname or ''}:{parsed_url.port or ''}").geturl()
+        print(f"INFO: Tentando conectar ao Redis usando a URL: {safe_display_url}")
+    except Exception as e:
+        print(f"AVISO: Não foi possível analisar a REDIS_URL para exibição segura. Erro: {e}")
+    # --- FIM DA MELHORIA ---
+
     redis_connection = redis.from_url(REDIS_URL, decode_responses=True)
     listener_task = None
     
     try:
-        # 1. *** SOLUÇÃO ROBUSTA ***
-        # Força a conexão e verifica se está ativa com um comando PING.
-        # Isso garante que a conexão com o Redis está 100% pronta.
         await redis_connection.ping()
-        print("Conexão com Redis estabelecida e verificada com sucesso.")
+        print("INFO: Conexão com Redis estabelecida e verificada com sucesso.")
 
-        # 2. Instancia o cliente PubSub APÓS a conexão ser verificada
         pubsub_client = PubSubClient(broadcaster=redis_connection)
     
-        # 3. Inicia o "ouvinte" como tarefa de fundo
         listener_task = asyncio.create_task(pubsub_client.listen())
-        print("Listener do PubSub iniciado em segundo plano.")
+        print("INFO: Listener do PubSub iniciado em segundo plano.")
         
-        # Inicializa o Firebase
         cred = credentials.Certificate("firebase-service-account.json")
         if not firebase_admin._apps:
             firebase_admin.initialize_app(cred, {
                 'databaseURL': 'https://dashboard-e66b8-default-rtdb.firebaseio.com/'
             })
-            print("Firebase Admin SDK inicializado com sucesso.")
+            print("INFO: Firebase Admin SDK inicializado com sucesso.")
         
-        # A aplicação roda aqui
         yield
         
     finally:
-        print("Encerrando a aplicação...")
+        print("INFO: Encerrando a aplicação...")
         if listener_task and not listener_task.done():
             listener_task.cancel()
         
         if redis_connection:
             await redis_connection.close()
-            print("Conexão com Redis fechada.")
+            print("INFO: Conexão com Redis fechada.")
 
 app = FastAPI(title="Dashboard de Vendas API", lifespan=lifespan)
 
+# O restante do arquivo continua exatamente igual...
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 app.include_router(dashboard_main.router)
 app.include_router(dashboard_vendas.router)
