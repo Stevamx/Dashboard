@@ -14,7 +14,7 @@ from contextlib import asynccontextmanager
 from fastapi_websocket_pubsub import PubSubClient
 import redis.asyncio as redis
 from typing import Dict
-from urllib.parse import urlparse # <-- Importe esta biblioteca
+from urllib.parse import urlparse
 
 # --- CONFIGURAÇÃO ---
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost")
@@ -67,19 +67,14 @@ from routers import (
 async def lifespan(app: FastAPI):
     global pubsub_client
     
-    # --- MELHORIA PARA DEBUG ---
-    # Imprime a URL do Redis que está sendo usada, para facilitar a depuração.
-    # A senha é omitida dos logs por segurança.
     try:
         parsed_url = urlparse(REDIS_URL)
         safe_display_url = parsed_url._replace(netloc=f"{parsed_url.username or ''}:{'******' if parsed_url.password else ''}@{parsed_url.hostname or ''}:{parsed_url.port or ''}").geturl()
         print(f"INFO: Tentando conectar ao Redis usando a URL: {safe_display_url}")
     except Exception as e:
         print(f"AVISO: Não foi possível analisar a REDIS_URL para exibição segura. Erro: {e}")
-    # --- FIM DA MELHORIA ---
 
     redis_connection = redis.from_url(REDIS_URL, decode_responses=True)
-    listener_task = None
     
     try:
         await redis_connection.ping()
@@ -87,8 +82,7 @@ async def lifespan(app: FastAPI):
 
         pubsub_client = PubSubClient(broadcaster=redis_connection)
     
-        listener_task = asyncio.create_task(pubsub_client.listen())
-        print("INFO: Listener do PubSub iniciado em segundo plano.")
+        # A LINHA QUE CAUSAVA O ERRO FOI REMOVIDA DAQUI.
         
         cred = credentials.Certificate("firebase-service-account.json")
         if not firebase_admin._apps:
@@ -97,20 +91,17 @@ async def lifespan(app: FastAPI):
             })
             print("INFO: Firebase Admin SDK inicializado com sucesso.")
         
+        print("INFO: Aplicação iniciada e pronta para receber conexões.")
         yield
         
     finally:
         print("INFO: Encerrando a aplicação...")
-        if listener_task and not listener_task.done():
-            listener_task.cancel()
-        
         if redis_connection:
             await redis_connection.close()
             print("INFO: Conexão com Redis fechada.")
 
 app = FastAPI(title="Dashboard de Vendas API", lifespan=lifespan)
 
-# O restante do arquivo continua exatamente igual...
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 app.include_router(dashboard_main.router)
 app.include_router(dashboard_vendas.router)
@@ -141,6 +132,12 @@ async def read_tv_page(): return "static/tv.html"
 
 @app.websocket("/ws/{company_id}")
 async def websocket_endpoint(websocket: WebSocket, company_id: str):
+    # Garante que o pubsub_client foi inicializado antes de aceitar conexões
+    if pubsub_client is None:
+        print(f"ERRO: Tentativa de conexão WebSocket antes da inicialização do PubSubClient para a empresa {company_id}.")
+        await websocket.close(code=1011, reason="Servidor não está pronto.")
+        return
+
     await websocket.accept()
     await pubsub_client.subscribe(websocket, [f"agent:{company_id}"])
     try:
