@@ -2,7 +2,7 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse # Adicione JSONResponse
 import firebase_admin
 from firebase_admin import credentials
 import json
@@ -81,9 +81,7 @@ async def lifespan(app: FastAPI):
         print("INFO: Conexão com Redis estabelecida e verificada com sucesso.")
 
         pubsub_client = PubSubClient(broadcaster=redis_connection)
-    
-        # A LINHA QUE CAUSAVA O ERRO FOI REMOVIDA DAQUI.
-        
+            
         cred = credentials.Certificate("firebase-service-account.json")
         if not firebase_admin._apps:
             firebase_admin.initialize_app(cred, {
@@ -102,8 +100,15 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Dashboard de Vendas API", lifespan=lifespan)
 
+# --- ENDPOINT DE HEALTH CHECK ---
+@app.get("/health", include_in_schema=False)
+async def health_check():
+    """Endpoint simples para a verificação de saúde do Render."""
+    return JSONResponse(content={"status": "ok"})
+
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 app.include_router(dashboard_main.router)
+# ... (restante das suas rotas)
 app.include_router(dashboard_vendas.router)
 app.include_router(dashboard_estoque.router)
 app.include_router(luca_ai.router)
@@ -117,6 +122,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # Rotas de páginas HTML
 @app.get("/", response_class=FileResponse, include_in_schema=False)
 async def read_root(): return "static/login.html"
+# ... (restante das suas rotas HTML)
 @app.get("/login", response_class=FileResponse, include_in_schema=False)
 async def read_login(): return "static/login.html"
 @app.get("/dashboard-web", response_class=FileResponse, include_in_schema=False)
@@ -132,9 +138,7 @@ async def read_tv_page(): return "static/tv.html"
 
 @app.websocket("/ws/{company_id}")
 async def websocket_endpoint(websocket: WebSocket, company_id: str):
-    # Garante que o pubsub_client foi inicializado antes de aceitar conexões
     if pubsub_client is None:
-        print(f"ERRO: Tentativa de conexão WebSocket antes da inicialização do PubSubClient para a empresa {company_id}.")
         await websocket.close(code=1011, reason="Servidor não está pronto.")
         return
 
