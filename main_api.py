@@ -11,22 +11,34 @@ import asyncio
 import uuid
 from datetime import date, datetime
 from contextlib import asynccontextmanager
-import redis.asyncio as redis
+# ### REMOVIDO ### - Não vamos mais usar a biblioteca do Redis
+# import redis.asyncio as redis 
 from typing import Dict
-from urllib.parse import urlparse
 
 # --- CONFIGURAÇÃO ---
-REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost")
+# ### REMOVIDO ### - A URL do Redis não é mais necessária
+# REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost")
 
 tasks: Dict[str, asyncio.Future] = {}
-redis_connection: redis.Redis = None
+
+# ### NOVO ### 
+# Dicionário para manter as conexões WebSocket ativas em memória.
+# A chave será o CNPJ da empresa e o valor será o objeto WebSocket da conexão.
+active_connections: Dict[str, WebSocket] = {}
 
 # --- LÓGICA DA APLICAÇÃO ---
 def json_converter(o):
     if isinstance(o, (datetime, date)):
         return o.isoformat()
 
+# ### ALTERADO ### 
+# A função agora envia a ordem diretamente para o WebSocket do agente conectado,
+# em vez de colocar na fila do Redis.
 async def execute_query_via_agent(company_cnpj: str, sql: str, params: list = []):
+    # Verifica se o agente da empresa solicitada está online
+    if company_cnpj not in active_connections:
+        raise HTTPException(status_code=503, detail=f"O agente local para a empresa {company_cnpj} não está conectado ao servidor.")
+
     task_id = str(uuid.uuid4())
     loop = asyncio.get_running_loop()
     future = loop.create_future()
@@ -36,11 +48,13 @@ async def execute_query_via_agent(company_cnpj: str, sql: str, params: list = []
     payload_str = json.dumps(payload, default=json_converter)
 
     try:
-        if redis_connection is None:
-            raise ConnectionError("A conexão com o Redis não foi inicializada.")
-
-        await redis_connection.rpush(f"queue:{company_cnpj}", payload_str)
+        # Pega a conexão do agente que está na memória
+        websocket = active_connections[company_cnpj]
         
+        # Envia a ordem diretamente pela conexão WebSocket
+        await websocket.send_text(payload_str)
+        
+        # O resto da lógica (esperar a resposta) permanece igual
         result = await asyncio.wait_for(future, timeout=20.0)
 
         if result.get("status") == "erro":
@@ -66,13 +80,13 @@ from routers import (
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global redis_connection
-    
-    redis_connection = redis.from_url(REDIS_URL, decode_responses=True)
+    # ### REMOVIDO ### - Toda a lógica de conexão com o Redis foi removida.
+    # global redis_connection
+    # redis_connection = redis.from_url(REDIS_URL, decode_responses=True)
     
     try:
-        await redis_connection.ping()
-        print("INFO: Conexão com Redis estabelecida e verificada com sucesso.")
+        # await redis_connection.ping()
+        # print("INFO: Conexão com Redis estabelecida e verificada com sucesso.")
             
         cred = credentials.Certificate("firebase-service-account.json")
         if not firebase_admin._apps:
@@ -86,9 +100,9 @@ async def lifespan(app: FastAPI):
         
     finally:
         print("INFO: Encerrando a aplicação...")
-        if redis_connection:
-            await redis_connection.close()
-            print("INFO: Conexão com Redis fechada.")
+        # if redis_connection:
+        #     await redis_connection.close()
+        #     print("INFO: Conexão com Redis fechada.")
 
 app = FastAPI(title="Dashboard de Vendas API", lifespan=lifespan)
 
@@ -97,37 +111,20 @@ app = FastAPI(title="Dashboard de Vendas API", lifespan=lifespan)
 async def health_check():
     return JSONResponse(content={"status": "ok"})
 
-# --- MUDANÇA PRINCIPAL: Lógica do WebSocket com reconexão ---
-
-async def redis_listener(websocket: WebSocket, company_id: str):
-    """Uma tarefa de fundo que escuta a fila do Redis e se reconecta se necessário."""
-    global redis_connection
-    print(f"INFO: Listener da fila 'queue:{company_id}' iniciado.")
-    
-    while True: # Loop de reconexão
-        try:
-            while True: # Loop de escuta
-                # Usamos um timeout no blpop para que a conexão não fique ociosa por muito tempo
-                message = await redis_connection.blpop(f"queue:{company_id}", timeout=240)
-                if message:
-                    await websocket.send_text(message[1])
-
-        except asyncio.CancelledError:
-            print(f"INFO: Listener para '{company_id}' foi cancelado.")
-            break # Sai do loop de reconexão se a tarefa for cancelada
-        except redis.exceptions.ConnectionError as e:
-            print(f"AVISO: Conexão do listener com Redis perdida: {e}. Tentando reconectar em 5 segundos...")
-            await asyncio.sleep(5)
-        except Exception as e:
-            print(f"ERRO CRÍTICO no listener do Redis para '{company_id}': {e}. Tentando reconectar em 5 segundos...")
-            await asyncio.sleep(5)
+# ### REMOVIDO ### 
+# O listener do Redis não é mais necessário, pois a comunicação agora é direta.
+# async def redis_listener(websocket: WebSocket, company_id: str): ...
 
 
+# ### ALTERADO ###
+# O WebSocket agora gerencia o dicionário de conexões ativas.
 @app.websocket("/ws/{company_id}")
 async def websocket_endpoint(websocket: WebSocket, company_id: str):
     await websocket.accept()
     
-    listener_task = asyncio.create_task(redis_listener(websocket, company_id))
+    # Adiciona a nova conexão ao nosso dicionário na memória
+    active_connections[company_id] = websocket
+    print(f"INFO: Agente da empresa '{company_id}' conectou. Total de agentes online: {len(active_connections)}")
     
     try:
         while True:
@@ -142,8 +139,10 @@ async def websocket_endpoint(websocket: WebSocket, company_id: str):
     except WebSocketDisconnect:
         print(f"INFO: Agente da empresa '{company_id}' desconectou.")
     finally:
-        listener_task.cancel()
-        print(f"INFO: Listener da fila para '{company_id}' finalizado.")
+        # Remove a conexão do dicionário quando o agente se desconectar
+        if company_id in active_connections:
+            del active_connections[company_id]
+        print(f"INFO: Conexão de '{company_id}' removida. Total de agentes online: {len(active_connections)}")
 
 # O restante do arquivo permanece igual
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
