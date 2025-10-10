@@ -2,7 +2,7 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse # Adicione JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 import firebase_admin
 from firebase_admin import credentials
 import json
@@ -11,7 +11,6 @@ import asyncio
 import uuid
 from datetime import date, datetime
 from contextlib import asynccontextmanager
-from fastapi_websocket_pubsub import PubSubClient
 import redis.asyncio as redis
 from typing import Dict
 from urllib.parse import urlparse
@@ -20,7 +19,8 @@ from urllib.parse import urlparse
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost")
 
 tasks: Dict[str, asyncio.Future] = {}
-pubsub_client: PubSubClient = None
+# A variável 'pubsub_client' foi removida. Usaremos a conexão direta do Redis.
+redis_connection: redis.Redis = None
 
 # --- LÓGICA DA APLICAÇÃO ---
 def json_converter(o):
@@ -34,12 +34,16 @@ async def execute_query_via_agent(company_cnpj: str, sql: str, params: list = []
     tasks[task_id] = future
 
     payload = {"id_tarefa": task_id, "acao": "query", "parametros": {"sql": sql, "params": params}}
+    payload_str = json.dumps(payload, default=json_converter)
 
     try:
-        if pubsub_client is None:
-            raise ConnectionError("O serviço de mensagens (PubSub) não foi inicializado.")
+        if redis_connection is None:
+            raise ConnectionError("A conexão com o Redis não foi inicializada.")
 
-        await pubsub_client.publish([f"agent:{company_cnpj}"], data=json.dumps(payload, default=json_converter))
+        # --- MUDANÇA PRINCIPAL: De 'publish' para 'rpush' ---
+        # Adiciona a tarefa na fila do agente específico.
+        await redis_connection.rpush(f"queue:{company_cnpj}", payload_str)
+        
         result = await asyncio.wait_for(future, timeout=20.0)
 
         if result.get("status") == "erro":
@@ -65,22 +69,13 @@ from routers import (
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global pubsub_client
+    global redis_connection
     
-    try:
-        parsed_url = urlparse(REDIS_URL)
-        safe_display_url = parsed_url._replace(netloc=f"{parsed_url.username or ''}:{'******' if parsed_url.password else ''}@{parsed_url.hostname or ''}:{parsed_url.port or ''}").geturl()
-        print(f"INFO: Tentando conectar ao Redis usando a URL: {safe_display_url}")
-    except Exception as e:
-        print(f"AVISO: Não foi possível analisar a REDIS_URL para exibição segura. Erro: {e}")
-
     redis_connection = redis.from_url(REDIS_URL, decode_responses=True)
     
     try:
         await redis_connection.ping()
         print("INFO: Conexão com Redis estabelecida e verificada com sucesso.")
-
-        pubsub_client = PubSubClient(broadcaster=redis_connection)
             
         cred = credentials.Certificate("firebase-service-account.json")
         if not firebase_admin._apps:
@@ -103,12 +98,57 @@ app = FastAPI(title="Dashboard de Vendas API", lifespan=lifespan)
 # --- ENDPOINT DE HEALTH CHECK ---
 @app.get("/health", include_in_schema=False)
 async def health_check():
-    """Endpoint simples para a verificação de saúde do Render."""
     return JSONResponse(content={"status": "ok"})
 
+# --- MUDANÇA PRINCIPAL: Nova lógica do WebSocket ---
+
+async def redis_listener(websocket: WebSocket, company_id: str):
+    """Uma tarefa de fundo que escuta a fila do Redis para um agente específico."""
+    global redis_connection
+    print(f"INFO: Listener da fila 'queue:{company_id}' iniciado.")
+    try:
+        while True:
+            # blpop espera eficientemente por uma nova mensagem na lista (fila)
+            message = await redis_connection.blpop(f"queue:{company_id}")
+            if message:
+                # message é uma tupla (nome_da_lista, conteudo), pegamos o conteúdo
+                await websocket.send_text(message[1])
+    except asyncio.CancelledError:
+        # Isso acontece quando o agente desconecta e a tarefa é cancelada
+        print(f"INFO: Listener para '{company_id}' foi cancelado.")
+    except Exception as e:
+        print(f"ERRO CRÍTICO no listener do Redis para '{company_id}': {e}")
+
+
+@app.websocket("/ws/{company_id}")
+async def websocket_endpoint(websocket: WebSocket, company_id: str):
+    await websocket.accept()
+    
+    # Cria e inicia a tarefa de fundo que escuta o Redis para este agente
+    listener_task = asyncio.create_task(redis_listener(websocket, company_id))
+    
+    try:
+        # Este loop agora só lida com as respostas que vêm do agente
+        while True:
+            data = await websocket.receive_text()
+            message = json.loads(data)
+            
+            task_id = message.get("id_tarefa")
+            if task_id and task_id in tasks:
+                future = tasks.pop(task_id)
+                future.set_result(message)
+                
+    except WebSocketDisconnect:
+        print(f"INFO: Agente da empresa '{company_id}' desconectou.")
+    finally:
+        # Se o agente desconectar, é crucial cancelar a tarefa de fundo
+        listener_task.cancel()
+        print(f"INFO: Listener da fila para '{company_id}' finalizado.")
+
+
+# O restante do arquivo permanece igual
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 app.include_router(dashboard_main.router)
-# ... (restante das suas rotas)
 app.include_router(dashboard_vendas.router)
 app.include_router(dashboard_estoque.router)
 app.include_router(luca_ai.router)
@@ -119,10 +159,8 @@ app.include_router(metas_panel.router)
 app.include_router(company_data.router)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Rotas de páginas HTML
 @app.get("/", response_class=FileResponse, include_in_schema=False)
 async def read_root(): return "static/login.html"
-# ... (restante das suas rotas HTML)
 @app.get("/login", response_class=FileResponse, include_in_schema=False)
 async def read_login(): return "static/login.html"
 @app.get("/dashboard-web", response_class=FileResponse, include_in_schema=False)
@@ -135,30 +173,3 @@ async def read_settings_page(): return "static/configuracoes.html"
 async def read_metas_page(): return "static/metas.html"
 @app.get("/tv", response_class=FileResponse, include_in_schema=False)
 async def read_tv_page(): return "static/tv.html"
-
-@app.websocket("/ws/{company_id}")
-async def websocket_endpoint(websocket: WebSocket, company_id: str):
-    if pubsub_client is None:
-        await websocket.close(code=1011, reason="Servidor não está pronto.")
-        return
-
-    await websocket.accept()
-    await pubsub_client.subscribe(websocket, [f"agent:{company_id}"])
-    try:
-        print(f"INFO: Agente da empresa '{company_id}' conectou e se inscreveu no canal.")
-        while True:
-            data = await websocket.receive_text()
-            message = json.loads(data)
-            
-            task_id = message.get("id_tarefa")
-            if task_id and task_id in tasks:
-                future = tasks.pop(task_id)
-                future.set_result(message)
-                
-    except WebSocketDisconnect:
-        print(f"INFO: Agente da empresa '{company_id}' desconectou.")
-    except Exception as e:
-        print(f"ERRO no endpoint websocket para '{company_id}': {e}")
-    finally:
-        await pubsub_client.unsubscribe(websocket)
-        print(f"INFO: Agente '{company_id}' removido da inscrição.")
