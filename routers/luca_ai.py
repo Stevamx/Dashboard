@@ -232,7 +232,11 @@ async def handle_luca_chat(request: LucaRequest, empresa_info: EmpresaInfo = Dep
         if not PROMPTS:
             raise HTTPException(status_code=500, detail="O arquivo de prompts (PROMPT.txt) não foi carregado ou está vazio. Verifique os logs do servidor.")
 
-        api_key = "AIzaSyDv4GG4QfG3orp-mLY2UuKslACFOFLrgzw"
+        # ### MELHORIA APLICADA AQUI ###
+        # A chave de API agora é lida a partir das variáveis de ambiente do servidor.
+        # Configure a variável 'GEMINI_API_KEY' no seu ambiente de produção (Render).
+        api_key = os.environ.get("GEMINI_API_KEY")
+        
         user_id, company_id = empresa_info.uid, empresa_info.company_id
         current_date_str = datetime.now().strftime('%Y-%m-%d')
         
@@ -317,7 +321,6 @@ async def handle_luca_chat(request: LucaRequest, empresa_info: EmpresaInfo = Dep
         if isinstance(e, HTTPException): raise e
         raise HTTPException(status_code=500, detail=f"Ocorreu um erro inesperado no servidor do LUCA: {str(e)}")
 
-# ### ALTERAÇÃO PRINCIPAL APLICADA AQUI ###
 @router.post("/luca/upload-and-analyze", response_model=LucaResponse)
 async def handle_file_upload(
     empresa_info: EmpresaInfo = Depends(verificar_empresa), 
@@ -330,7 +333,6 @@ async def handle_file_upload(
         if not file.filename:
             raise HTTPException(status_code=400, detail="Nome do arquivo não fornecido.")
             
-        # Lista expandida de tipos de arquivo permitidos
         allowed_content_types = [
             "text/plain", "text/csv", "application/json",
             "application/pdf",
@@ -340,12 +342,11 @@ async def handle_file_upload(
         if file.content_type not in allowed_content_types:
             raise HTTPException(status_code=400, detail=f"Tipo de arquivo não suportado: {file.content_type}. Use .txt, .csv, .json, .pdf, .xlsx ou .docx.")
 
-        max_size = 5 * 1024 * 1024 # Aumentado para 5MB para acomodar arquivos maiores
+        max_size = 5 * 1024 * 1024
         contents_bytes = await file.read()
         if len(contents_bytes) > max_size:
             raise HTTPException(status_code=413, detail="Arquivo muito grande. O limite é de 5MB.")
 
-        # Lógica para extrair texto de diferentes tipos de arquivo
         file_content = ""
         try:
             if file.content_type == "application/pdf":
@@ -367,7 +368,6 @@ async def handle_file_upload(
                 doc = docx.Document(io.BytesIO(contents_bytes))
                 file_content = "\n".join([para.text for para in doc.paragraphs])
             
-            # Fallback para arquivos de texto plano
             else:
                 encodings_to_try = ['utf-8', 'latin-1', 'windows-1252']
                 for encoding in encodings_to_try:
@@ -387,9 +387,10 @@ async def handle_file_upload(
         if not file_content.strip():
             raise HTTPException(status_code=400, detail="O arquivo parece estar vazio ou não contém texto extraível.")
 
-
-        # O resto do fluxo continua igual: preparar prompt e chamar a IA
-        api_key = "AIzaSyDv4GG4QfG3orp-mLY2UuKslACFOFLrgzw"
+        # ### MELHORIA APLICADA AQUI ###
+        # A chave de API também é lida do ambiente para esta função.
+        api_key = os.environ.get("GEMINI_API_KEY")
+        
         prompt_template = PROMPTS.get("file_summary")
         if not prompt_template:
             raise HTTPException(status_code=500, detail="Template de prompt 'file_summary' não encontrado no servidor.")
