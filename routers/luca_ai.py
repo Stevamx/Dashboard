@@ -1,3 +1,4 @@
+# TESTE PARA VERIFICAR O GIT
 # /routers/luca_ai.py
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
 from pydantic import BaseModel
