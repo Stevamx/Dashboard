@@ -1,0 +1,6 @@
+TGEREMPRESA (TABELA)
+Coluna
+CODIGO chave estrangeira que liga as outras "TABELAS"
+NOMEFANTASIA indica o nome fantasia da empresa
+CPFCNPJ Indica o numero "cpf/cnpj" da empresa
+PESSOA indica se o cadastro é "cpf" ou "cpnj", "J" significa CNPJ, "F" signica "CPF.

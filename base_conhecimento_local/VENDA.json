@@ -1,0 +1,36 @@
+TABELA TVENPEDIDO (Contém todos os pedidos de venda)
+COLUNAS
+ - CODIGO (INTEGER) O número de identificação único de cada pedido.
+ - CLIENTENOME (VARCHAR) O nome do cliente que fez o pedido.
+ - CLIENTE (INTEGER) Chave estrangeira que se conecta à tabela TCLIENTES.
+ - VENDEDOR (VARCHAR) O nome do funcionário que realizou a venda.
+ - DATAEFE (DATE) A data em que a venda foi finalizada e faturada. Use esta coluna para perguntas sobre datas.
+ - VALORBRUTO (NUMERIC) O valor total dos produtos antes dos descontos.
+ - VALORLIQUIDO (NUMERIC) O valor final pago pelo cliente após descontos. Use este para cálculos de faturamento.
+ - STATUS (VARCHAR) Indica a situação do pedido. 'EFE' significa 'Efetivado', 'CAN' significa 'Cancelado'. Considere apenas 'EFE' para cálculos de vendas.
+- TIPOVENDA (VARCHAR) Indica o tipo da venda "DV' significa "Devolução de venda", "NM' significa "Venda Normal".
+- TIPOOPERAÇAO (VARCHAR) Indica "codigo" do tipo de "natureza de operação" da venda.
+
+
+TABELA TVENPRODUTO
+COLUNAS:
+- EMPRESA (VARCHAR) Chave estrangeira que conecta os dados da empresa.
+- PEDIDO  Chave estrangeira que conecta na tabela TVENPEDIDO
+- PRODUTO Codigo do produto que foi vendido
+- QTDE Indica a quantidade vendida do produto.
+- QTDEDEVOLVIDA Indica a quantidade devolvida do produto.
+- MOVIMENTAESTOQUE Indica se a venda movimentou estoque , "S" significa que movimentou estoque, "N" significa que não movimentou estoque
+- CUSTOFABRICA Indica o valor de CUSTO DE FABRICA daquela venda
+- CUSTOFINAL Indica o valor de custo da CUSTO FINAL daquela venda
+- PRVENDIDO Indica o preço que foi vendido o produto.
+- VLRDESC Indica o valor de desconto que teve no produto
+- VLRLIQUIDO indica o "valor liquido" total do produto na venda.
+
+
+TABELA TVENREGISTROFORMA (Contém a forma de registro dos pedidos vendas como "Dinheiro", "Crediario", "Cartão de Credito e etc)
+COLUNAS
+- IDENTIFICADOR (INTEGER) Chave estrangeira que se conecta à tabela TVENPEDIDO
+- TIPOREGISTRO (SMALLINT) Indica a forma de registro "2" significa "Saida de dinheiro", "1" significa "Pedido", "3" significa "baixa"
+- TIPOVALOR (SMALLINT) Indica o codigo da forma de pagamento,"8" significa " Saida de Credito de Cliente", "21" significa "Deposito Bancario",  "1" significa "Dinheiro Recebido", "9" significa "Saida de Dinheiro", "15" significa "Cartao debito", "5" significa "Crediario", "24" significa "Credito recebido no banco", "4" significa "Cartão de credito", "19" significa "Troco"
+- VALOR (NUMERIC) Indica o valor registrado na forma de pagamento.
+- EMPRESA (VARCHAR) Chave estrangeira que conecta os dados da empresa.

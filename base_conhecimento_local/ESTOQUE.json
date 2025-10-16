@@ -1,0 +1,118 @@
+TABELA TESTPRODUTO (Tabela de produtos do estoque)
+COLUNAS
+- EMPRESA (VARCHAR) Chave estrangeira que conecta os dados da empresa.
+ - PRODUTO (INTEGER) Chave primária da tabela de produtos.
+ - CUSTOFABRICA (NUMERIC) O preço unitário de "CUSTO DE FABRICA" de cada produto.
+ - CUSTOFINAL (NUMERIC) O preço unitário de "CUSTO FINAL" de cada produto.
+ - CUSTOFINAL (NUMERIC) O preço unitário de "CUSTO FINAL" de cada produto.
+- PRPRATICADO Indica o "PREÇO VAREJO" de cada produto.
+- ESTDISPONIVEL indica "quantidade" disponivel pra venda no estoque
+- GRUPO indica o codigo do "grupo" do produto
+- SUBGRUPO Indica o codigo do "subgrupo" do produto
+- ATIVO Indica se o produto está ativo ou não, "S" significa ativo, "N" significa inativo.
+
+
+TABELA TESTPRODUTOGERAL (Tabela de produtos do estoque)
+COLUNAS
+- CODIGO (INTEGER) Chave estrangeira que conecta a tabela TESTPRODUTO.
+- DESCRICAO (VARCHAR) Descrição do produto.
+- CODIGOBARRA
+- MARCA Indica o codigo da "MARCA" do produto 
+- EMBALAGEM Indica a "EMBALAGEM" do produto como "UN", "MT", "CX" e etc.
+
+TABELA TESTMARCA  (Tabela de marcas dos produtos)
+COLUNAS
+- CODIGO  (INTEGER) Chave estrangeira que conecta a tabela TESTPRODUTOGERAL
+- DESCRICAO Indica o "NOME" da marca.
+- ATIVO Indica se a marca está ativo ou não, "S" significa ATIVO, "N" significa INATIVO.
+
+
+TABELA TESTEMBALAGEM (Tabela de embalagem dos produtos)
+COLUNAS
+- CODIGO Chave estrangeira que conecta a tabela TESTPRODUTOGERAL
+- DESCRICAO Indica o "NOME" da EMBALAGEM, como "CAIXA", "FARDO"  e etc.
+
+
+TESTGRUPO
+COLUNAS
+- EMPRESA (VARCHAR) Chave estrangeira que conecta os dados da empresa.
+- CODIGO Chave estrangeira que conecta a tabela TESTPRODUTO.
+- DESCRICAO indica o nome do grupo
+- TIPO indica o tipo do gupo, "R" significa revenda, "C" significa consumo.
+
+TESTSUBGRUPO
+- EMPRESA (VARCHAR) Chave estrangeira que conecta os dados da empresa.
+- GRUPO Chave estrangeira que conecta a tabela TESTGRUPO.
+- SUBGRUPO Chave estrangeira que conecta a tabela TESTPRODUTO.
+- DESCRICAO indica o nome do grupo
+
+
+
+TABELA  TESTEXTRATO
+COLUNAS
+- EMPRESA Chave estrangeira que conecta os dados da empresa
+- CODIGO indica o ID da movimentação do extrato
+- ALMOX indica o codigo do ALMOXARIFADO.
+- PRODUTO Chave estrangeira que conecta CODIGO DO PRODUTO nas tabelas TESTPRODUTO, TESTPRODUTOGERAL, TVENPRODUTO e etc.
+- DATAHORA é a data e a hora da movimentação do produto.
+- QTDE indica a quantidade da movimentação
+- VALOR indica o valor do produto nessa movimentação
+- MOVIMENTOID Chave primária da tabela. Código numérico que identifica unicamente o tipo de movimentação e liga a tabela TIPOMOVIMENTO
+- ENTRADASAIDA Indica se o tipo de movimento foi ENTRADA OU SAIDA, "S" significa SAIDA, "E" significa ENTRADA.
+- CODIGOID é o CODIGO que vincula a origem da movimentação como ID DO PEDIDO, ID DA DEVOLUÇÃO e etc
+
+
+
+Base de Conhecimento: Tabela TIPOMOVIMENTO
+Esta tabela define os tipos de transações que afetam o estoque de produtos. Cada registro (linha) representa um par de operações logicamente conectadas: uma operação que causa uma SAÍDA de estoque e a sua respectiva contrapartida que causa uma ENTRADA. 
+A contrapartida pode ser a operação inversa (como um cancelamento) ou uma operação complementar (como a entrada de uma transferência).
+A estrutura permite que o sistema saiba, por exemplo, que um "Cancelamento de Venda" (entrada) está intrinsecamente ligado a uma "Venda" (saída).
+
+TABELA TIPOMOVIMENTO (Tabela de Tipos de Movimentação de Estoque)
+COLUNAS
+- CODIGO Chave primária da tabela. Código numérico que identifica unicamente o tipo de movimentação e liga a tabela TESTEXTRATO.
+O codigo "01" representa uma VENDA (saida) e CANCELAMENTO DE VENDA (entrada).
+O codigo "02" representa um CANCELAMENTO ENTRADA MERCADORIA (saída) e ENTRADA DE MERCADORIAS (entrada)
+O código "03" representa uma transferência interna, onde a TRANSF. ALMOXARIFADO (SAIDA) é a contrapartida da TRANSF. ALMOXARIFADO (ENTRADA)
+O codigo "04" representa uma transferencia 
+O codigo "05" representa um ajuste de estoque, onde INVENTARIO (saida) é a contrapartida do INVENTARIO (ENTRADA)
+O codigo "06" representa  uma saida de produto que não é uma venda, onde RETIRADA DE MERCADORIAS (saida) e CANCELAMENTO DE RETIRADA DE MERCADORIA (entrada)
+O codigo "07" representa uma devolução de venda, DEVOLUÇÃO DE VENDA (entrada) e CANCELAMENTO DEVOLUÇÃO DE VENDA (saida)
+O codigo "08" representa uma transferência entre filiais, TRANSF. ENTRE FILIAS (saida) e  ENTRAD/CANCELAMENT. TRANSF. ENTRE FILIAIS (entrada)
+O codigo "09" representa uma devolução de compra, DEVOLUCAO DE COMPRA (saida) e CANCELAMENTO DE DEVOLUCAO DE COMPRA (entrada)
+O codigo "10" representa movimentção de materia prima, SAIDA PRODUCAO (saida) e ENT PRODUCAO (entrada)
+- DESCSAIDA Indica a "Descrição Completa da operação de SAÍDA" do estoque (ex: "VENDA", "SAIDA PRODUCAO").
+- DESCENTRADA Indica a "Descrição Completa da operação de ENTRADA" no estoque, geralmente sendo a contrapartida da saída (ex: "CANCELAMENTO DE VENDA", "ENTRADA DE MERCADORIAS").
+- MICROENTRADA Descreve de forma "Abreviada a operação de ENTRADA" no estoque (ex: "CANC. VENDA", "ENT. MERC.").
+- MICROSAIDA Descreve de forma "Abreviada a operação de SAÍDA" do estoque (ex: "VENDA", "CANC. ENT.").
+
+
+
+TABELA TESTESTATFORNECEDOR
+COLUNAS:
+- EMPRESA Chave estrangeira que conecta os dados da empresa.
+- PRODUTO Chave estrangeira que conecta CODIGO DO PRODUTO nas tabelas TESTPRODUTO, TESTPRODUTOGERAL, TVENPRODUTO e etc.
+- FORNECEDOR Chave estrangeira que conecta a tabela TPAGFORNECEDOR.
+- ANO indica o ano da compra do produto.
+- MES indica o mês da compra do produo.
+- COMPRAVALOR indica o valor do PRODUTO na compra.
+- COMPRAQTDE indica a QUANTIDADE do produto comprado.
+- DEVOLUCAOCOMPRAVALOR indica o valor do produto DEVOLVIDO.
+- DEVOLUCAOCOMPRAQTDE indica a QUANTIDADE do produto DEVOLVIDA.
+ 
+TABELA TPAGFORNECEDOR
+COLUNAS:
+- CODIGO indica o CODIGO do fornecedor,  chave estrangeira que conecta a tabela TESTESTATFORNECEDOR e etc.
+- NOME indica o nome (RAZÃO SOCIAL) do FORNECEDOR.
+- FANTASIA indica o nome FANTASIA do FORNECEDOR.
+- CPFCNPJ indica o CNPJ OU CPF do fornecedor.
+- PESSOA indica se o fornecedor é PESSOA FISICA OU JURIDICA.
+- ATIVO indica se o cadastro do fornecedor ta ATIVO OU INATIVO, "S" significa ATIVO, "N" significa INATIVO.
+
+
+
+
+
+
+
+
