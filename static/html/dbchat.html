@@ -1,0 +1,60 @@
+<nav class="main-nav active" data-module="module-chat">
+    <button class="nav-button active" data-target="content-chat">Assistente IA</button>
+</nav>
+
+<div id="module-chat" class="main-module active">
+    <div class="page active" id="content-chat">
+        <div class="chat-container">
+            <div class="chat-header">
+                <div class="chat-header-info">
+                    <div class="avatar avatar-luca-header" id="luca-header-avatar"></div>
+                    <div class="chat-header-text">
+                        <h3>LUCA</h3>
+                        <span>Assistente de Dados</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chat-history" id="chat-history">
+                </div>
+            
+            <div id="recording-overlay" class="recording-overlay">
+                <div class="recording-indicator">
+                    <i class='bx bxs-microphone'></i>
+                    <p>Gravando... Fale agora.</p>
+                </div>
+            </div>
+
+            <div class="chat-input-bar">
+                <div class="chat-input-wrapper">
+                    <button id="actions-btn" title="Ver Ações Sugeridas">
+                        <i class='bx bx-extension'></i>
+                    </button>
+                    <button id="upload-btn" title="Enviar Arquivo">
+                        <i class='bx bx-paperclip'></i>
+                    </button>
+                    <textarea id="chat-input" placeholder="Converse com o LUCA ou clique no microfone..." rows="1"></textarea>
+                    
+                    <button id="mic-btn" title="Gravar Áudio">
+                        <i class='bx bxs-microphone'></i>
+                    </button>
+                    <button id="send-btn" title="Enviar Mensagem">
+                        <i class='bx bxs-paper-plane'></i>
+                    </button>
+                </div>
+                 <input type="file" id="file-input" accept=".txt,.csv,.json,.pdf,.xlsx,.docx" style="display: none;">
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="suggestions-modal" class="modal-overlay suggestions-modal">
+    <div class="suggestions-modal-content">
+        <div class="suggestions-modal-header">
+            <h4>💡 O que você gostaria de analisar hoje?</h4>
+            <button class="close-modal-btn" id="close-suggestions-modal">&times;</button>
+        </div>
+        <div id="suggestions-grid" class="suggestions-grid">
+            </div>
+    </div>
+</div>

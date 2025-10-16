@@ -2,6 +2,13 @@
 document.addEventListener('DOMContentLoaded', () => {
     const openBtn = document.getElementById('open-tv-settings-btn');
     const modal = document.getElementById('tv-settings-modal-overlay');
+
+    // Esta verificação garante que o script só continue se os elementos principais existirem
+    if (!openBtn || !modal) {
+        return;
+    }
+
+    // O resto do script só é executado se os elementos acima forem encontrados
     const closeBtn = document.getElementById('close-tv-settings-btn');
     const cancelBtn = document.getElementById('cancel-tv-settings-btn');
     const saveBtn = document.getElementById('save-tv-settings-btn');
@@ -33,6 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderAvailableCards() {
+        if (!availableCardsList) return;
         availableCardsList.innerHTML = '';
         allCards.forEach(card => {
             const item = document.createElement('div');
@@ -49,6 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderPreview() {
+        if (!previewGrid) return;
         previewGrid.innerHTML = '';
         currentLayout.forEach((card, index) => {
             const cardInfo = allCards.find(c => c.id === card.id);
@@ -72,51 +81,54 @@ document.addEventListener('DOMContentLoaded', () => {
             previewGrid.appendChild(previewCard);
         });
     }
-
-    previewGrid.addEventListener('click', (e) => {
-        const button = e.target.closest('.tv-card-control-btn');
-        if (!button) return;
-
-        const cardElement = button.closest('.tv-preview-card');
-        const index = parseInt(cardElement.dataset.index, 10);
-        const action = button.dataset.action;
-
-        if (action === 'delete') {
-            currentLayout.splice(index, 1);
-        } else if (action === 'resize') {
-            currentLayout[index].size = button.dataset.size;
-        }
-        renderPreview();
-    });
-
-    previewGrid.addEventListener('dragover', (e) => e.preventDefault());
-    previewGrid.addEventListener('drop', (e) => {
-        e.preventDefault();
-        const data = JSON.parse(e.dataTransfer.getData('text/plain'));
-        currentLayout.push({ id: data.id, size: data.size });
-        renderPreview();
-    });
-
-    // --- ALTERAÇÃO APLICADA AQUI ---
-    saveBtn.addEventListener('click', () => {
-        const refreshIntervalInput = document.getElementById('tv-refresh-interval');
-        const refreshInterval = parseInt(refreshIntervalInput.value, 10);
-
-        if (!refreshInterval || refreshInterval < 1) {
-            showNotification("Atenção", "O intervalo de atualização deve ser de no mínimo 1 minuto.", "warning");
-            return;
-        }
-
-        localStorage.setItem('tvRefreshInterval', refreshInterval);
-        localStorage.setItem('tvLayout', JSON.stringify(currentLayout));
-        window.open('/tv', '_blank');
-        closeModal();
-    });
     
-    // --- ALTERAÇÃO APLICADA AQUI ---
+    if(previewGrid) {
+        previewGrid.addEventListener('click', (e) => {
+            const button = e.target.closest('.tv-card-control-btn');
+            if (!button) return;
+    
+            const cardElement = button.closest('.tv-preview-card');
+            const index = parseInt(cardElement.dataset.index, 10);
+            const action = button.dataset.action;
+    
+            if (action === 'delete') {
+                currentLayout.splice(index, 1);
+            } else if (action === 'resize') {
+                currentLayout[index].size = button.dataset.size;
+            }
+            renderPreview();
+        });
+    
+        previewGrid.addEventListener('dragover', (e) => e.preventDefault());
+        previewGrid.addEventListener('drop', (e) => {
+            e.preventDefault();
+            const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+            currentLayout.push({ id: data.id, size: data.size });
+            renderPreview();
+        });
+    }
+
+    if(saveBtn) {
+        saveBtn.addEventListener('click', () => {
+            const refreshIntervalInput = document.getElementById('tv-refresh-interval');
+            const refreshInterval = parseInt(refreshIntervalInput.value, 10);
+    
+            if (!refreshInterval || refreshInterval < 1) {
+                showNotification("Atenção", "O intervalo de atualização deve ser de no mínimo 1 minuto.", "warning");
+                return;
+            }
+    
+            localStorage.setItem('tvRefreshInterval', refreshInterval);
+            localStorage.setItem('tvLayout', JSON.stringify(currentLayout));
+            window.open('/tv', '_blank');
+            closeModal();
+        });
+    }
+    
     const openModal = () => {
         const savedInterval = localStorage.getItem('tvRefreshInterval') || 5;
-        document.getElementById('tv-refresh-interval').value = savedInterval;
+        const intervalInput = document.getElementById('tv-refresh-interval');
+        if(intervalInput) intervalInput.value = savedInterval;
         loadLayout(); 
         modal.classList.add('visible'); 
     };
@@ -124,8 +136,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeModal = () => modal.classList.remove('visible');
 
     openBtn.addEventListener('click', openModal);
-    closeBtn.addEventListener('click', closeModal);
-    cancelBtn.addEventListener('click', closeModal);
+    if(closeBtn) closeBtn.addEventListener('click', closeModal);
+    if(cancelBtn) cancelBtn.addEventListener('click', closeModal);
     modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
 
     renderAvailableCards();

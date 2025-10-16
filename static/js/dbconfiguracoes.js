@@ -1,32 +1,45 @@
-// static/js/configuracoes.js
-document.addEventListener('DOMContentLoaded', () => {
-    
-    // --- LÓGICA DE NAVEGAÇÃO POR ABAS ---
+// static/js/dbconfiguracoes.js
+(async () => {
+    // --- LÓGICA DE NAVEGAÇÃO POR ABAS (INTERNAS DO MÓDULO) ---
     function initializeSimpleTabNavigation() {
-        const navButtons = document.querySelectorAll('.main-header .nav-button[data-target]');
-        const pages = document.querySelectorAll('.container .page');
+        // ### CORREÇÃO APLICADA AQUI ###
+        // O seletor dos botões foi ajustado para encontrar a barra de navegação
+        // pelo seu atributo 'data-module', já que ela não fica dentro do #module-configuracoes.
+        const navButtons = document.querySelectorAll('nav[data-module="module-configuracoes"] .nav-button[data-target]');
+        const pages = document.querySelectorAll('#module-configuracoes .page');
+        
         navButtons.forEach(button => {
             button.addEventListener('click', () => {
                 if (button.classList.contains('active')) return;
+                
                 const targetId = button.getAttribute('data-target');
+                
+                // Atualiza o estado dos botões da navegação
                 navButtons.forEach(btn => btn.classList.remove('active'));
                 button.classList.add('active');
-                pages.forEach(page => page.classList.toggle('active', page.id === targetId));
+                
+                // Lógica de troca de página corrigida para ser mais explícita
+                
+                // 1. Esconde todas as páginas
+                pages.forEach(page => page.classList.remove('active'));
+                
+                // 2. Mostra apenas a página alvo
+                const targetPage = document.getElementById(targetId);
+                if (targetPage) {
+                    targetPage.classList.add('active');
+                }
             });
         });
     }
 
     // --- LÓGICA DE GERENCIAMENTO DE USUÁRIOS ---
+    // ### ALTERAÇÃO APLICADA AQUI: Simplificação das chaves de acesso ###
     const accessHierarchy = {
-        'Painéis Principais': {
-            'dashboard': 'Painel de Análises (Dashboards)',
-            'metas': 'Painel de Metas',
-            'chat': 'Assistente IA (LUCA)',
-            'configuracoes': 'Painel de Configurações (Admin)'
-        },
-        'Módulos dos Dashboards': {
-            'vendas': 'Análise de Vendas',
-            'estoque': 'Análise de Estoque'
+        'Permissões de Acesso': {
+            'vendas': 'Painel de Vendas (inclui Dashboard Geral e Metas)',
+            'estoque': 'Painel de Estoque',
+            'luca': 'Assistente IA (Luca)',
+            'configuracoes': 'Painel de Configurações'
         }
     };
 
@@ -49,21 +62,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 label.innerHTML = `<input type="checkbox" name="${inputName}" value="${key}" ${isChecked ? 'checked' : ''}><span class="checkmark"></span><span class="label-text">${accessHierarchy[groupName][key]}</span>`;
                 gridDiv.appendChild(label);
             }
-            // --- A CORREÇÃO ESTÁ NA LINHA ABAIXO ---
-            // ANTES: groupDiv.appendChild(groupDiv);
-            // DEPOIS:
             groupDiv.appendChild(gridDiv);
             container.appendChild(groupDiv);
         }
     }
 
     const usersTableBody = document.querySelector('#users-table tbody');
-    const addUserModalOverlay = document.getElementById('user-modal-overlay');
-    const addUserForm = document.getElementById('add-user-form');
-    const openAddModalBtn = document.getElementById('add-user-btn');
-    const closeAddModalBtn = document.getElementById('close-user-modal-btn');
-    const cancelAddModalBtn = document.getElementById('cancel-user-modal-btn');
     const editUserModalOverlay = document.getElementById('edit-user-modal-overlay');
+    
     const editUserForm = document.getElementById('edit-user-form');
     const editRoleSelect = document.getElementById('edit-role');
     const closeEditModalBtn = document.getElementById('close-edit-modal-btn');
@@ -78,23 +84,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 usersTableBody.innerHTML = '';
                 if (users.length === 0) {
                      usersTableBody.innerHTML = '<tr><td colspan="4">Nenhum usuário cadastrado.</td></tr>';
-                     hideLoading(); // Adicionado para fechar o loading
-                     return;
+                } else {
+                    users.forEach(user => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td data-label="Nome">${user.username || 'N/A'}</td>
+                            <td data-label="E-mail">${user.email}</td>
+                            <td data-label="Permissão"><span class="role-badge role-${user.papel || 'usuario'}">${user.papel || 'Usuário'}</span></td>
+                            <td data-label="Ações" class="actions-cell">
+                                <button class="action-btn-icon edit" title="Editar Usuário" data-uid="${user.uid}"><i class='bx bxs-pencil'></i></button>
+                                <button class="action-btn-icon delete" title="Excluir Usuário" data-uid="${user.uid}"><i class='bx bxs-trash'></i></button>
+                            </td>
+                        `;
+                        usersTableBody.appendChild(tr);
+                    });
+                    addTableActionListeners();
                 }
-                users.forEach(user => {
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td data-label="Nome">${user.username || 'N/A'}</td>
-                        <td data-label="E-mail">${user.email}</td>
-                        <td data-label="Permissão"><span class="role-badge role-${user.papel || 'usuario'}">${user.papel || 'Usuário'}</span></td>
-                        <td data-label="Ações" class="actions-cell">
-                            <button class="action-btn-icon edit" title="Editar Usuário" data-uid="${user.uid}"><i class='bx bxs-pencil'></i></button>
-                            <button class="action-btn-icon delete" title="Excluir Usuário" data-uid="${user.uid}"><i class='bx bxs-trash'></i></button>
-                        </td>
-                    `;
-                    usersTableBody.appendChild(tr);
-                });
-                addTableActionListeners();
             }
         } catch(e) {
             if (usersTableBody) {
@@ -106,13 +111,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function addTableActionListeners() {
-        document.querySelectorAll('.action-btn-icon.delete').forEach(button => {
+        document.querySelectorAll('#module-configuracoes .action-btn-icon.delete').forEach(button => {
             button.addEventListener('click', (e) => {
                 const uid = e.currentTarget.getAttribute('data-uid');
                 handleDeleteUser(uid);
             });
         });
-        document.querySelectorAll('.action-btn-icon.edit').forEach(button => {
+        document.querySelectorAll('#module-configuracoes .action-btn-icon.edit').forEach(button => {
             button.addEventListener('click', (e) => {
                 const uid = e.currentTarget.getAttribute('data-uid');
                 openEditModal(uid);
@@ -125,7 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (confirmed) {
             showLoading();
             try {
-                const response = await fazerRequisicaoAutenticada(`/admin/users/${uid}`, { method: 'DELETE' });
+                await fazerRequisicaoAutenticada(`/admin/users/${uid}`, { method: 'DELETE' });
                 showNotification('Sucesso', 'Usuário excluído com sucesso!', 'success');
                 await loadUsers();
             } catch(e) {
@@ -155,66 +160,54 @@ document.addEventListener('DOMContentLoaded', () => {
             hideLoading();
         }
     }
+    
+    // --- LÓGICA PARA O PAINEL DA IA ---
+    const aiForm = document.getElementById('ai-settings-form');
+    const aiPrompt = document.getElementById('ai-prompt');
+    const aiFormMessage = document.getElementById('ai-form-message');
 
-    function setupModal(modalConfig) {
-        const closeFn = () => {
-            modalConfig.overlay.classList.remove('visible');
-            if(modalConfig.form) modalConfig.form.reset();
-        };
-        if(modalConfig.openBtn) modalConfig.openBtn.addEventListener('click', () => {
-            if(modalConfig.openFn) modalConfig.openFn();
-            modalConfig.overlay.classList.add('visible');
-        });
-        if(modalConfig.closeBtn) modalConfig.closeBtn.addEventListener('click', closeFn);
-        if(modalConfig.cancelBtn) modalConfig.cancelBtn.addEventListener('click', closeFn);
-        if(modalConfig.overlay) modalConfig.overlay.addEventListener('click', (e) => {
-            if (e.target === modalConfig.overlay) closeFn();
-        });
+    async function loadAiSettings() {
+        if (!aiForm) return; 
+        aiFormMessage.textContent = '';
+        try {
+            const settings = await fazerRequisicaoAutenticada('/admin/settings/ai');
+            if (settings) {
+                aiPrompt.value = settings.prompt || '';
+            }
+        } catch (e) {
+            aiFormMessage.textContent = `Erro ao carregar: ${e.message}`;
+            aiFormMessage.className = 'form-message error';
+        }
     }
-    
-    // --- INICIALIZAÇÃO GERAL ---
-    initializeSimpleTabNavigation();
-    loadUsers(); 
-    
-    setupModal({
-        overlay: addUserModalOverlay, openBtn: openAddModalBtn, closeBtn: closeAddModalBtn, cancelBtn: cancelAddModalBtn, form: addUserForm,
-        openFn: () => populateAccessCheckboxes('add-access-groups', 'add_acessos', { dashboard: true, vendas: true })
-    });
-    setupModal({
-        overlay: editUserModalOverlay, closeBtn: closeEditModalBtn, cancelBtn: cancelEditModalBtn, form: editUserForm
-    });
-    
-    if (addUserForm) {
-        addUserForm.addEventListener('submit', async (e) => {
+
+    if (aiForm) {
+        aiForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             showLoading();
-            const acessos = {};
-            document.querySelectorAll('input[name="add_acessos"]:checked').forEach(checkbox => { acessos[checkbox.value] = true; });
-            const payload = { 
-                username: document.getElementById('username').value, 
-                email: document.getElementById('email').value, 
-                password: document.getElementById('password').value, 
-                papel: document.getElementById('role').value,
-                acessos
-            };
+            aiFormMessage.textContent = '';
             try {
-                await fazerRequisicaoAutenticada('/admin/users', {
-                    method: 'POST',
+                await fazerRequisicaoAutenticada('/admin/settings/ai', {
+                    method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify({ prompt: aiPrompt.value })
                 });
-                showNotification('Sucesso!', 'Novo usuário criado com sucesso.', 'success');
-                addUserModalOverlay.classList.remove('visible');
-                addUserForm.reset();
-                await loadUsers();
-            } catch(e) {
-                showNotification('Erro', e.message, 'error');
+                aiFormMessage.textContent = 'Configurações salvas com sucesso!';
+                aiFormMessage.className = 'form-message success';
+            } catch (error) {
+                aiFormMessage.textContent = `Erro ao salvar: ${error.message}`;
+                aiFormMessage.className = 'form-message error';
             } finally {
                 hideLoading();
             }
         });
     }
 
+    // --- INICIALIZAÇÃO GERAL DO MÓDULO ---
+    initializeSimpleTabNavigation();
+    loadUsers();
+    loadAiSettings();
+
+    // Event listeners dos modais e formulários de edição
     if (editUserForm) {
         editUserForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -230,7 +223,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, papel, acessos })
                 });
-                showNotification('Sucesso!', 'Usuário atualizado com sucesso.', 'success');
+                showNotification('Sucesso!', 'Usuário atualizado com sucesso!', 'success');
                 editUserModalOverlay.classList.remove('visible');
                 await loadUsers();
             } catch(e) {
@@ -241,14 +234,26 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    if(closeEditModalBtn) {
+        closeEditModalBtn.addEventListener('click', () => editUserModalOverlay.classList.remove('visible'));
+    }
+    if(cancelEditModalBtn) {
+        cancelEditModalBtn.addEventListener('click', () => editUserModalOverlay.classList.remove('visible'));
+    }
+
     if(editRoleSelect) {
         editRoleSelect.addEventListener('change', () => {
             const is_admin = editRoleSelect.value === 'admin';
+            const accessContainer = document.getElementById('edit-access-groups');
             const accessCheckboxes = document.querySelectorAll('#edit-access-groups input[type="checkbox"]');
+            
+            accessContainer.classList.toggle('is-admin-locked', is_admin);
+
             accessCheckboxes.forEach(checkbox => {
                 checkbox.disabled = is_admin;
                 if (is_admin) checkbox.checked = true;
             });
         });
     }
-});
+
+})();

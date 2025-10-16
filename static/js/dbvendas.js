@@ -44,7 +44,7 @@
                 }
 
                 document.getElementById('sales-filter-btn').style.display = 'inline-flex';
-                // O gráfico anual agora é carregado separadamente
+
                 const [summaryData, dailySalesData, marginData] = await Promise.all([
                     fazerRequisicaoAutenticada(`/vendas/summary?${urlParams.toString()}`),
                     fazerRequisicaoAutenticada('/dashboard/daily-sales?days=7'),
@@ -63,8 +63,9 @@
                 if (dailySalesData) renderDailySalesChartVendas(dailySalesData);
                 if (marginData) renderProfitMarginChart(marginData);
                 
-                // Dispara o carregamento do gráfico anual com os valores padrão nos inputs
-                document.getElementById('apply-annual-sales-filter').click();
+                // ### ALTERAÇÃO APLICADA AQUI: Carrega o gráfico anual com os valores padrão ###
+                const today = new Date();
+                await loadAnnualSalesData(today.getFullYear(), today.getFullYear() - 1);
 
             } else if (activeTab === 'content-vendas-vendedores') {
                 document.getElementById('sales-filter-btn').style.display = 'none';
@@ -120,24 +121,44 @@
     }
 
     // --- FUNÇÕES DE INICIALIZAÇÃO E EVENTOS ---
-    function initializeAnnualSalesFilter() {
-        const year1Input = document.getElementById('annual-sales-year1');
-        const year2Input = document.getElementById('annual-sales-year2');
-        const applyBtn = document.getElementById('apply-annual-sales-filter');
-        const today = new Date();
-        
-        // Define os anos padrão nos inputs
-        year1Input.value = today.getFullYear();
-        year2Input.value = today.getFullYear() - 1;
 
-        applyBtn.addEventListener('click', () => {
+    // ### ALTERAÇÃO APLICADA AQUI: Função reescrita para controlar o novo modal ###
+    function initializeAnnualSalesFilter() {
+        const modal = document.getElementById('annual-sales-filter-modal');
+        const openBtn = document.getElementById('open-annual-sales-filter-btn');
+        const closeBtn = document.getElementById('close-annual-sales-modal-btn');
+        const cancelBtn = document.getElementById('cancel-annual-sales-modal-btn');
+        const applyBtn = document.getElementById('apply-modal-annual-sales-filter');
+        const year1Input = document.getElementById('modal-annual-sales-year1');
+        const year2Input = document.getElementById('modal-annual-sales-year2');
+        
+        const openModal = () => {
+            const today = new Date();
+            // Preenche com os valores atuais ou padrão ao abrir
+            year1Input.value = year1Input.value || today.getFullYear();
+            year2Input.value = year2Input.value || today.getFullYear() - 1;
+            modal.classList.add('visible');
+        };
+
+        const closeModal = () => modal.classList.remove('visible');
+
+        const applyFilter = () => {
             const year1 = parseInt(year1Input.value, 10);
             const year2 = parseInt(year2Input.value, 10);
             if (year1 && year2 && year1 > 1900 && year2 > 1900) {
                 loadAnnualSalesData(year1, year2);
+                closeModal();
             } else {
                 alert("Por favor, insira dois anos válidos.");
             }
+        };
+
+        if (openBtn) openBtn.addEventListener('click', openModal);
+        if (closeBtn) closeBtn.addEventListener('click', closeModal);
+        if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+        if (applyBtn) applyBtn.addEventListener('click', applyFilter);
+        if (modal) modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal();
         });
     }
 
@@ -317,7 +338,7 @@
     initializeVendorFilters();
     initializeTopProductsToggle();
     initializeTabNavigation();
-    initializeAnnualSalesFilter(); // Adiciona a inicialização do novo filtro
+    initializeAnnualSalesFilter();
     await populateVendorSelect();
     
     loadDataForActiveTab();

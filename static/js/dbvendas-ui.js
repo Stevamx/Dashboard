@@ -1,11 +1,13 @@
 // static/js/dbvendas-ui.js
 // Este arquivo contém todas as funções de renderização para o módulo de Vendas.
 
+// ### ALTERAÇÃO APLICADA AQUI: Troca de formatCurrency para formatCurrencyAbbreviated ###
 function updateSalesKpiCards(data) {
-    document.getElementById('sales-kpi-revenue').textContent = formatCurrency(data.total_revenue);
+    document.getElementById('sales-kpi-revenue').textContent = formatCurrencyAbbreviated(data.total_revenue);
     document.getElementById('sales-kpi-orders').textContent = data.total_orders;
-    document.getElementById('sales-kpi-ticket').textContent = formatCurrency(data.avg_ticket);
-    document.getElementById('sales-kpi-net-profit').textContent = formatCurrency(data.net_profit);
+    document.getElementById('sales-kpi-ticket').textContent = formatCurrencyAbbreviated(data.avg_ticket);
+    document.getElementById('sales-kpi-net-profit').textContent = formatCurrencyAbbreviated(data.net_profit);
+    document.getElementById('sales-kpi-returns').textContent = formatCurrencyAbbreviated(data.total_returns);
 }
 
 function renderDailySalesChartVendas(data) {
@@ -148,13 +150,11 @@ function renderTopProductsChart(data, label = 'Faturamento') {
     });
 }
 
-// --- FUNÇÃO ALTERADA ---
 function renderAnnualSalesChart(data) {
     destroyChart('annualSalesChart');
     const c = document.getElementById('annualSalesChart').getContext('2d');
     const m = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
     
-    // Anos e dados vêm da API
     const year1 = data.year1;
     const year2 = data.year2;
     const dataYear1 = data.data_year1;

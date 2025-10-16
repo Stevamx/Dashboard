@@ -1,0 +1,59 @@
+<nav class="main-nav active" data-module="module-configuracoes">
+    <button class="nav-button active" data-target="content-admin-general">Configurações Gerais</button>
+    <button class="nav-button" data-target="content-admin-users">Usuários</button>
+    <button class="nav-button" data-target="content-admin-ai">Agente IA</button>
+</nav>
+
+<div id="module-configuracoes" class="main-module active">
+    <div class="container">
+        <div class="page active" id="content-admin-general">
+            <div class="page-header">
+                <h2>Configurações Gerais</h2>
+            </div>
+            <div class="card full-width-card">
+                <p class="product-list-empty">Nenhuma configuração geral disponível no momento.</p>
+            </div>
+        </div>
+
+        <div class="page" id="content-admin-users">
+            <div class="page-header">
+                <h2>Gerenciamento de Usuários</h2>
+            </div>
+            <div class="card full-width-card">
+                <div class="ranking-table-container">
+                    <table id="users-table" class="ranking-table">
+                        <thead>
+                            <tr>
+                                <th>Nome</th>
+                                <th>E-mail</th>
+                                <th>Permissão</th>
+                                <th style="text-align: right;">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="page" id="content-admin-ai">
+            <div class="page-header">
+                <h2>Configurações do Agente IA</h2>
+            </div>
+            <div class="card full-width-card">
+                <form id="ai-settings-form">
+                    <div class="form-group">
+                        <label for="ai-prompt">Prompt do Sistema</label>
+                        <p class="form-hint">Instruções que definem o comportamento do seu assistente de IA. Você pode personalizar a "personalidade" e as diretrizes do assistente para sua empresa.</p>
+                        <textarea id="ai-prompt" class="form-control" rows="8" placeholder="Ex: Você é um assistente especialista em análise de vendas..."></textarea>
+                    </div>
+                    
+                    <div class="form-footer">
+                         <div id="ai-form-message" class="form-message"></div>
+                        <button type="submit" class="action-button primary"><i class='bx bx-save'></i> Salvar Alterações</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>

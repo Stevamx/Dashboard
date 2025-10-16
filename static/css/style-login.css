@@ -169,7 +169,7 @@ body {
     visibility: visible;
 }
 
-/* --- ESTILOS PARA O MODAL DE SELEÇÃO DE PAINEL --- */
+/* --- ESTILOS PARA O MODAL DE SELEÇÃO DE EMPRESA --- */
 @keyframes slideInUp {
     from { transform: translateY(30px); opacity: 0; }
     to { transform: translateY(0); opacity: 1; }
@@ -215,24 +215,6 @@ body {
 .panel-selection-modal-content .header p {
     font-size: 1.1rem;
     color: var(--muted);
-}
-
-.company-info {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    background-color: var(--brand-bg-light);
-    color: var(--brand);
-    padding: 10px 20px;
-    border-radius: 999px;
-    font-weight: 500;
-    margin: 1rem auto 0;
-    max-width: 90%;
-    font-size: 0.95rem;
-}
-.company-info i {
-    font-size: 1.2rem;
 }
 
 .panel-links {
@@ -307,12 +289,11 @@ body {
     font-weight: 500;
 }
 
-/* ### CORREÇÃO APLICADA AQUI ### */
 .action-link:hover {
     color: var(--ink);
     text-decoration: underline;
 }
-/* ### ESTILOS ADICIONADOS PARA O MODAL DE ALTERAR SENHA ### */
+
 .form-group {
     text-align: left;
     width: 100%;

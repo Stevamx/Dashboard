@@ -7,7 +7,6 @@
     <div id="content-vendas-analise" class="page active">
         <div class="container">
             <div class="page-header">
-                <h2>Análise de Vendas</h2>
                 <button id="sales-filter-btn" class="action-button" title="Filtrar Período e Vendedores"><i class='bx bx-filter-alt'></i> Filtrar</button>
             </div>
              <div class="kpi-grid">
@@ -15,6 +14,14 @@
                 <div class="card kpi-card" data-card-id="sales_kpi_orders"><div class="kpi-icon"><i class='bx bxs-cart'></i></div><div class="kpi-text"><h3>Total de Pedidos</h3><div id="sales-kpi-orders" class="value">0</div></div></div>
                 <div class="card kpi-card" data-card-id="sales_kpi_ticket"><div class="kpi-icon"><i class='bx bx-receipt'></i></div><div class="kpi-text"><h3>Ticket Médio</h3><div id="sales-kpi-ticket" class="value">R$ 0,00</div></div></div>
                 <div class="card kpi-card" data-card-id="sales_kpi_net_profit"><div class="kpi-icon"><i class='bx bx-line-chart'></i></div><div class="kpi-text"><h3>Lucro Líquido</h3><div id="sales-kpi-net-profit" class="value">R$ 0,00</div></div></div>
+                
+                <div class="card kpi-card" data-card-id="sales_kpi_returns">
+                    <div class="kpi-icon alert"><i class='bx bx-undo'></i></div>
+                    <div class="kpi-text">
+                        <h3>Total em Devoluções</h3>
+                        <div id="sales-kpi-returns" class="value">R$ 0,00</div>
+                    </div>
+                </div>
             </div>
             <div class="main-grid">
                 <div class="card chart-card" data-card-id="chart_daily_sales_vendas"><h2>Desempenho (Últimos 7 Dias)</h2><div class="chart-wrapper"><canvas id="dailySalesChartVendas"></canvas></div></div>
@@ -32,12 +39,9 @@
                 <div class="card full-width-card" data-card-id="chart_annual_sales">
                     <div class="card-title-wrapper">
                         <h2>Faturamento Anual (Mês a Mês)</h2>
-                        <div id="annual-sales-filter" class="card-header-form">
-                            <input type="number" id="annual-sales-year1" class="card-header-input" placeholder="Ano">
-                            <span class="comparison-vs">vs</span>
-                            <input type="number" id="annual-sales-year2" class="card-header-input" placeholder="Ano">
-                            <button id="apply-annual-sales-filter" class="card-header-button small">OK</button>
-                        </div>
+                        <button id="open-annual-sales-filter-btn" class="card-header-button" title="Filtrar Anos">
+                            <i class='bx bx-slider-alt'></i>
+                        </button>
                     </div>
                     <div class="chart-wrapper"><canvas id="annualSalesChart"></canvas></div>
                 </div>
@@ -134,6 +138,32 @@
         <div class="modal-footer">
             <button id="cancel-sales-filter-btn" class="modal-button secondary">Cancelar</button>
             <button id="apply-sales-filter-btn" class="modal-button primary">Aplicar Filtros</button>
+        </div>
+    </div>
+</div>
+
+<div id="annual-sales-filter-modal" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Filtrar Faturamento Anual</h2>
+            <button id="close-annual-sales-modal-btn" class="close-button" title="Fechar">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p style="text-align: center; color: var(--muted); margin-bottom: 1rem;">Selecione os dois anos que deseja comparar.</p>
+            <div class="date-inputs">
+                <div class="form-group">
+                    <label for="modal-annual-sales-year1">Ano Principal</label>
+                    <input type="number" id="modal-annual-sales-year1" class="form-control" placeholder="Ex: 2024">
+                </div>
+                <div class="form-group">
+                    <label for="modal-annual-sales-year2">Ano de Comparação</label>
+                    <input type="number" id="modal-annual-sales-year2" class="form-control" placeholder="Ex: 2023">
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button id="cancel-annual-sales-modal-btn" class="modal-button secondary">Cancelar</button>
+            <button id="apply-modal-annual-sales-filter" class="modal-button primary">Aplicar Filtro</button>
         </div>
     </div>
 </div>

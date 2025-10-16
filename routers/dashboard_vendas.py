@@ -23,16 +23,19 @@ async def get_sales_summary(
     try:
         company_cnpj = empresa_info.company_id
         params = [start_date, end_date, id_empresa]
-        where_clauses = ["p.STATUS = 'EFE'", "p.TIPOVENDA = 'NM'", "p.GERAFINANCEIRO = 'S'", "p.DATAEFE BETWEEN ? AND ?", "p.EMPRESA = ?"]
+        # Cláusulas base (sem TIPOVENDA para ser reutilizável)
+        base_where_clauses = ["p.STATUS = 'EFE'", "p.GERAFINANCEIRO = 'S'", "p.DATAEFE BETWEEN ? AND ?", "p.EMPRESA = ?"]
         join_vendor_str = ""
 
         if selected_vendors:
             join_vendor_str = "LEFT JOIN TVENVENDEDOR v ON p.VENDEDOR = v.CODIGO AND p.EMPRESA = v.EMPRESA"
             placeholders = ','.join(['?'] * len(selected_vendors))
-            where_clauses.append(f"v.NOME IN ({placeholders})")
+            base_where_clauses.append(f"v.NOME IN ({placeholders})")
             params.extend(selected_vendors)
         
-        main_where = " AND ".join(where_clauses)
+        # Cria as cláusulas WHERE específicas para vendas (NM) e devoluções (DV)
+        main_where = " AND ".join(base_where_clauses + ["p.TIPOVENDA = 'NM'"])
+        returns_where = " AND ".join(base_where_clauses + ["p.TIPOVENDA = 'DV'"])
 
         revenue_sql = f"SELECT SUM(CAST(p.VALORLIQUIDO AS DOUBLE PRECISION)) AS TOTAL, COUNT(p.CODIGO) AS QTD FROM TVENPEDIDO p {join_vendor_str} WHERE {main_where}"
         revenue_res = await execute_query_via_agent(company_cnpj, revenue_sql, params)
@@ -44,7 +47,12 @@ async def get_sales_summary(
         net_profit = float(profit_res[0]['TOTAL'] or 0.0) if profit_res else 0.0
         avg_ticket = total_revenue / total_orders if total_orders > 0 else 0.0
 
-        peak_where = " AND ".join(where_clauses + ["p.HORAEFE IS NOT NULL"])
+        # ### ADICIONADO AQUI: Cálculo de Devoluções ###
+        returns_sql = f"SELECT SUM(CAST(p.VALORLIQUIDO AS DOUBLE PRECISION)) AS TOTAL FROM TVENPEDIDO p {join_vendor_str} WHERE {returns_where}"
+        returns_res = await execute_query_via_agent(company_cnpj, returns_sql, params)
+        total_returns = float(returns_res[0]['TOTAL'] or 0.0) if returns_res else 0.0
+
+        peak_where = " AND ".join(base_where_clauses + ["p.TIPOVENDA = 'NM'", "p.HORAEFE IS NOT NULL"])
         peak_sql = f"SELECT EXTRACT(HOUR FROM p.HORAEFE) AS HORA, SUM(CAST(p.VALORLIQUIDO AS DOUBLE PRECISION)) AS TOTAL FROM TVENPEDIDO p {join_vendor_str} WHERE {peak_where} GROUP BY 1"
         peak_res = await execute_query_via_agent(company_cnpj, peak_sql, params)
         peak_hours_sales = [0.0] * 24
@@ -53,7 +61,7 @@ async def get_sales_summary(
             if 0 <= hour < 24: peak_hours_sales[hour] = sales
         
         payment_map = {1: "Dinheiro", 4: "Cartão de Crédito", 5: "Crediário", 15: "Cartão de Débito"}
-        pay_where = " AND ".join(where_clauses + ["r.TIPOREGISTRO = 1"])
+        pay_where = " AND ".join(base_where_clauses + ["r.TIPOREGISTRO = 1"])
         pay_sql = f"SELECT r.TIPOVALOR, SUM(CAST(r.VALOR AS DOUBLE PRECISION)) AS TOTAL FROM TVENREGISTROFORMA r JOIN TVENPEDIDO p ON r.IDENTIFICADOR = p.CODIGO {join_vendor_str} WHERE {pay_where} GROUP BY r.TIPOVALOR"
         pay_res = await execute_query_via_agent(company_cnpj, pay_sql, params)
         payment_methods_data = {}
@@ -76,7 +84,11 @@ async def get_sales_summary(
         sales_by_group_data = {"labels": [r['NOME'] for r in sales_group_res], "data": [float(r['TOTAL'] or 0.0) for r in sales_group_res]}
 
         return { 
-            "summary": {"total_revenue": total_revenue, "total_orders": total_orders, "avg_ticket": avg_ticket, "net_profit": net_profit}, 
+            "summary": {
+                "total_revenue": total_revenue, "total_orders": total_orders, 
+                "avg_ticket": avg_ticket, "net_profit": net_profit,
+                "total_returns": total_returns # ### VALOR ADICIONADO NA RESPOSTA ###
+            }, 
             "peak_hours_data": {"sales": peak_hours_sales}, 
             "payment_methods_data": dict(sorted(payment_methods_data.items(), key=lambda item: item[1], reverse=True)), 
             "top_products_data": top_products_data, "top_products_profit_data": top_products_profit_data,
@@ -86,6 +98,7 @@ async def get_sales_summary(
         if isinstance(e, HTTPException): raise e
         raise HTTPException(status_code=500, detail=f"Erro ao buscar resumo de vendas: {e}")
 
+# ... (o resto do arquivo dashboard_vendas.py continua igual)
 @router.get("/annual-summary")
 async def get_annual_summary(
     empresa_info: EmpresaInfo = Depends(verificar_empresa),

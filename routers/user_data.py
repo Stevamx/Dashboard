@@ -94,9 +94,14 @@ async def get_current_user_info(empresa_info: EmpresaInfo = Depends(verificar_em
             if not found_company:
                  raise HTTPException(status_code=404, detail="Dados da empresa não encontrados no perfil do usuário no Firebase.")
         
-        # Para superadmins, os acessos são totais por padrão
+        # ### ALTERAÇÃO APLICADA AQUI: Permissões padrão para superadmin atualizadas ###
         if is_superadmin:
-            access_data['acessos'] = {"dashboard": True, "vendas": True, "estoque": True, "chat": True, "metas": True, "configuracoes": True}
+            access_data['acessos'] = {
+                "vendas": True, 
+                "estoque": True, 
+                "luca": True, 
+                "configuracoes": True
+            }
             # O nome da empresa do superadmin poderia ser obtido por outro meio, se necessário,
             # mas por agora, usaremos um nome genérico ou o CNPJ.
             company_name = f"Acesso: {company_id_cnpj}"

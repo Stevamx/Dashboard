@@ -1,4 +1,6 @@
 # .gitignore
+# Ambiente Virtual
+venv/
 
 firebase-service-account.json
 agente_config.ini

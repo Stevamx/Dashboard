@@ -1,4 +1,4 @@
-// static/js/dashboard-loader.js
+// static/js/dashboard-loader.js v1.4
 
 document.addEventListener('DOMContentLoaded', () => {
     const contentPlaceholder = document.getElementById('content-placeholder');
@@ -8,10 +8,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const head = document.head;
     let currentModule = null;
 
-    // --- AJUSTE: Módulo 'metas' adicionado às dependências ---
     const moduleDependencies = {
-        'vendas': ['/static/js/dbvendas-ui.js'],
-        'metas': [] // O módulo de metas não tem dependências extras além das globais
+        'geral': ['/static/js/dbgeral.js'],
+        'vendas': ['/static/js/dbvendas-ui.js', '/static/js/dbvendas.js'],
+        'estoque': ['/static/js/dbestoque.js'],
+        'metas': ['/static/js/dbmetas.js'],
+        'chat': ['/static/js/dbchat.js'],
+        'configuracoes': ['/static/js/dbconfiguracoes.js']
     };
 
     function applyUserPermissions(userData) {
@@ -39,6 +42,33 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function loadScripts(scripts) {
+        return Promise.all(scripts.map(scriptSrc => {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = `${scriptSrc}?v=1.4`;
+                script.defer = true;
+                script.classList.add('module-resource');
+                script.onload = resolve;
+                script.onerror = () => reject(new Error(`Falha ao carregar o script: ${scriptSrc}`));
+                document.body.appendChild(script);
+            });
+        }));
+    }
+
+    // ### FUNÇÃO DE CARREGAMENTO DE CSS APRIMORADA ###
+    function loadCss(cssPath) {
+        return new Promise((resolve, reject) => {
+            const cssLink = document.createElement('link');
+            cssLink.rel = 'stylesheet';
+            cssLink.href = `${cssPath}?v=1.4`;
+            cssLink.classList.add('module-resource');
+            cssLink.onload = resolve;
+            cssLink.onerror = () => reject(new Error(`Falha ao carregar o CSS: ${cssPath}`));
+            head.appendChild(cssLink);
+        });
+    }
+
     async function loadModule(moduleName) {
         if (currentModule === moduleName) return;
         showLoading();
@@ -46,7 +76,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             document.querySelectorAll('.module-resource').forEach(el => el.remove());
 
-            const response = await fetch(`/static/html/db${moduleName}.html?v=1.1`);
+            const response = await fetch(`/static/html/db${moduleName}.html?v=1.4`);
             if (!response.ok) throw new Error(`Módulo ${moduleName} não encontrado.`);
             const moduleHtml = await response.text();
             
@@ -64,28 +94,17 @@ document.addEventListener('DOMContentLoaded', () => {
             if (contentElement) contentPlaceholder.appendChild(contentElement);
             modalElements.forEach(modal => modalsPlaceholder.appendChild(modal));
 
-            const cssLink = document.createElement('link');
-            cssLink.rel = 'stylesheet';
-            cssLink.href = `/static/css/db${moduleName}.css?v=1.1`;
-            cssLink.classList.add('module-resource');
-            head.appendChild(cssLink);
+            // ### ALTERAÇÃO PRINCIPAL APLICADA AQUI ###
+            // Agora esperamos explicitamente o CSS e os Scripts serem carregados
+            // usando as funções aprimoradas.
+            const cssPath = `/static/css/db${moduleName}.css`;
+            const scripts = moduleDependencies[moduleName] || [];
 
-            if (moduleDependencies[moduleName]) {
-                for (const dependencySrc of moduleDependencies[moduleName]) {
-                    const depScript = document.createElement('script');
-                    depScript.src = `${dependencySrc}?v=1.1`;
-                    depScript.defer = true;
-                    depScript.classList.add('module-resource');
-                    document.body.appendChild(depScript);
-                }
-            }
-
-            const script = document.createElement('script');
-            script.src = `/static/js/db${moduleName}.js?v=1.1`;
-            script.defer = true;
-            script.classList.add('module-resource');
-            document.body.appendChild(script);
-
+            await Promise.all([
+                loadCss(cssPath),
+                loadScripts(scripts)
+            ]);
+            
             currentModule = moduleName;
             document.querySelectorAll('.sidebar-link, .sidebar-link-external').forEach(link => {
                 const linkModule = link.dataset.module;

@@ -4,8 +4,11 @@ from pydantic import BaseModel, Field
 from typing import Dict, Optional
 from firebase_admin import auth, db
 
-from dependencies import verificar_admin_realtime_db, EmpresaInfo
-from database import connect
+# ### ALTERAÇÃO APLICADA AQUI ###
+# Adicionada a dependência 'get_company_fk' para obter o ID da empresa no banco.
+from dependencies import verificar_admin_realtime_db, EmpresaInfo, get_company_fk
+from main_api import execute_query_via_agent
+
 
 router = APIRouter(
     prefix="/admin",
@@ -24,14 +27,38 @@ class CreateUserRequest(UserData):
 
 class AISettings(BaseModel):
     prompt: Optional[str] = ""
-    api_key: Optional[str] = Field("", alias="apiKey")
+    api_key: Optional[str] = Field(None, alias="apiKey")
+
+
+# ### ALTERAÇÃO APLICADA AQUI ###
+# A função foi reescrita para criar a nova tabela 'DBCONFIG' com a estrutura correta.
+async def create_dbconfig_if_not_exists(company_cnpj: str):
+    """Verifica se a tabela DBCONFIG existe e, se não, a cria."""
+    try:
+        check_sql = "SELECT 1 FROM RDB$RELATIONS WHERE RDB$RELATION_NAME = 'DBCONFIG'"
+        table_exists = await execute_query_via_agent(company_cnpj, check_sql)
+
+        if not table_exists:
+            # A nova tabela agora inclui ID_EMPRESA e tem uma chave primária composta.
+            create_table_sql = """
+            CREATE TABLE DBCONFIG (
+                ID_EMPRESA VARCHAR(11) NOT NULL,
+                CHAVE VARCHAR(50) NOT NULL,
+                VALOR BLOB SUB_TYPE TEXT,
+                PRIMARY KEY (ID_EMPRESA, CHAVE)
+            );
+            """
+            await execute_query_via_agent(company_cnpj, create_table_sql)
+            print(f"INFO: Tabela 'DBCONFIG' criada para a empresa {company_cnpj}.")
+
+    except Exception as e:
+        print(f"AVISO: Erro ao tentar verificar/criar a tabela DBCONFIG para {company_cnpj}: {e}")
 
 
 @router.get("/users")
 async def list_users(empresa_info: EmpresaInfo = Depends(verificar_admin_realtime_db)):
     """ Lista todos os usuários associados à empresa. """
     try:
-        # CORREÇÃO: Usa o company_id que já foi verificado pela dependência.
         company_id = empresa_info.company_id
         
         users_ref = db.reference(f'/empresas/{company_id}/usuarios').get()
@@ -64,8 +91,6 @@ async def create_user(request: CreateUserRequest, empresa_info: EmpresaInfo = De
             display_name=request.username
         )
         uid = new_user.uid
-        
-        # CORREÇÃO: Usa o company_id da dependência.
         company_id = empresa_info.company_id
         
         user_company_data = {"papel": request.papel, "acessos": request.acessos or {}}
@@ -82,7 +107,6 @@ async def create_user(request: CreateUserRequest, empresa_info: EmpresaInfo = De
     except auth.EmailAlreadyExistsError:
         raise HTTPException(status_code=400, detail="O e-mail fornecido já está em uso.")
     except Exception as e:
-        # Se der erro, tenta deletar o usuário criado no Auth para não deixar lixo
         if 'uid' in locals():
             auth.delete_user(uid)
         raise HTTPException(status_code=500, detail=f"Erro ao criar usuário: {e}")
@@ -92,7 +116,6 @@ async def create_user(request: CreateUserRequest, empresa_info: EmpresaInfo = De
 async def get_user_details(uid: str, empresa_info: EmpresaInfo = Depends(verificar_admin_realtime_db)):
     """ Busca os detalhes de um usuário específico. """
     try:
-        # CORREÇÃO: Usa o company_id da dependência.
         company_id = empresa_info.company_id
         
         user_ref = db.reference(f'/usuarios/{uid}').get()
@@ -116,8 +139,6 @@ async def update_user(uid: str, request: UserData, empresa_info: EmpresaInfo = D
     """ Atualiza os dados de um usuário. """
     try:
         auth.update_user(uid, display_name=request.username)
-        
-        # CORREÇÃO: Usa o company_id da dependência.
         company_id = empresa_info.company_id
         
         db.reference(f'usuarios/{uid}/username').set(request.username)
@@ -132,11 +153,8 @@ async def update_user(uid: str, request: UserData, empresa_info: EmpresaInfo = D
 async def delete_user(uid: str, empresa_info: EmpresaInfo = Depends(verificar_admin_realtime_db)):
     """ Deleta um usuário permanentemente. """
     try:
-        # CORREÇÃO: Usa o company_id da dependência.
         company_id = empresa_info.company_id
-
         auth.delete_user(uid)
-        
         db.reference(f'usuarios/{uid}').delete()
         db.reference(f'empresas/{company_id}/usuarios/{uid}').delete()
         
@@ -146,40 +164,51 @@ async def delete_user(uid: str, empresa_info: EmpresaInfo = Depends(verificar_ad
 
 
 # --- ENDPOINTS PARA CONFIGURAÇÃO DA IA ---
+
+# ### ALTERAÇÃO APLICADA AQUI ###
+# O endpoint agora depende de 'id_empresa' e busca na tabela 'DBCONFIG'.
 @router.get("/settings/ai", response_model=AISettings)
-async def get_ai_settings():
-    """ Busca as configurações da IA no Firebird. """
-    settings = {"prompt": "", "apiKey": ""}
+async def get_ai_settings(
+    empresa_info: EmpresaInfo = Depends(verificar_admin_realtime_db),
+    id_empresa: str = Depends(get_company_fk)
+):
+    """ Busca as configurações da IA para a empresa específica. """
+    await create_dbconfig_if_not_exists(empresa_info.company_id)
+
+    settings = {"prompt": "Você é um assistente prestativo."} # Valor padrão
     try:
-        conn = connect()
-        if not conn: raise HTTPException(status_code=500, detail="Falha na conexão com o Firebird.")
+        # A query agora filtra pela ID da empresa e pela chave.
+        sql = "SELECT VALOR FROM DBCONFIG WHERE ID_EMPRESA = ? AND CHAVE = ?"
+        params = [id_empresa, 'AI_PROMPT']
+        results = await execute_query_via_agent(empresa_info.company_id, sql, params)
         
-        cur = conn.cursor()
-        cur.execute("SELECT CHAVE, VALOR FROM TGERCONFIG WHERE CHAVE IN ('AI_PROMPT', 'GEMINI_API_KEY')")
-        for chave, valor in cur.fetchall():
-            if chave == 'AI_PROMPT':
-                settings["prompt"] = valor
-            elif chave == 'GEMINI_API_KEY':
-                settings["apiKey"] = valor
-        conn.close()
+        if results and results[0].get('VALOR'):
+            settings["prompt"] = results[0].get('VALOR')
+        
         return AISettings(**settings)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao buscar configurações da IA: {e}")
+        if isinstance(e, HTTPException): raise e
+        raise HTTPException(status_code=500, detail=f"Erro ao buscar configurações da IA via agente: {e}")
 
+
+# ### ALTERAÇÃO APLICADA AQUI ###
+# O endpoint agora depende de 'id_empresa' e salva na tabela 'DBCONFIG'.
 @router.put("/settings/ai")
-async def update_ai_settings(settings: AISettings):
-    """ Salva as configurações da IA no Firebird. """
+async def update_ai_settings(
+    settings: AISettings, 
+    empresa_info: EmpresaInfo = Depends(verificar_admin_realtime_db),
+    id_empresa: str = Depends(get_company_fk)
+):
+    """ Salva as configurações da IA no banco da empresa via agente. """
     try:
-        conn = connect()
-        if not conn: raise HTTPException(status_code=500, detail="Falha na conexão com o Firebird.")
+        await create_dbconfig_if_not_exists(empresa_info.company_id)
+
+        # A query agora insere/atualiza o registro para a empresa específica.
+        sql = "UPDATE OR INSERT INTO DBCONFIG (ID_EMPRESA, CHAVE, VALOR) VALUES (?, ?, ?) MATCHING (ID_EMPRESA, CHAVE)"
+        params = [id_empresa, 'AI_PROMPT', settings.prompt]
+        await execute_query_via_agent(empresa_info.company_id, sql, params)
         
-        cur = conn.cursor()
-        cur.execute("UPDATE OR INSERT INTO TGERCONFIG (CHAVE, VALOR) VALUES (?, ?) MATCHING (CHAVE)", ('AI_PROMPT', settings.prompt))
-        cur.execute("UPDATE OR INSERT INTO TGERCONFIG (CHAVE, VALOR) VALUES (?, ?) MATCHING (CHAVE)", ('GEMINI_API_KEY', settings.api_key))
-        
-        conn.commit()
-        conn.close()
         return {"status": "success", "message": "Configurações da IA salvas com sucesso."}
     except Exception as e:
-        if conn: conn.rollback()
-        raise HTTPException(status_code=500, detail=f"Erro ao salvar configurações da IA: {e}")
+        if isinstance(e, HTTPException): raise e
+        raise HTTPException(status_code=500, detail=f"Erro ao salvar configurações da IA via agente: {e}")

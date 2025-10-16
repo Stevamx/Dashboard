@@ -3,7 +3,61 @@
     let tvModeInterval = null;
     const VENDORS_STORAGE_KEY = 'dashboardVendorsSelection';
 
-    // ... (as outras funções 'updateKpiCards', 'renderMonthlyPerformanceChart', etc. continuam iguais) ...
+    // ### FUNÇÃO DE ALERTAS REESCRITA PARA POPULAR O MODAL ###
+    function renderProactiveAlerts(alerts) {
+        const modalBody = document.getElementById('alerts-modal-body');
+        const badge = document.querySelector('#open-alerts-modal-btn .notification-badge');
+
+        if (!modalBody || !badge) return;
+
+        if (!alerts || alerts.length === 0) {
+            modalBody.innerHTML = '<p class="product-list-empty">Nenhuma novidade ou oportunidade encontrada no momento.</p>';
+            badge.style.display = 'none';
+            return;
+        }
+        
+        const iconMap = {
+            warning: 'bxs-error-alt',
+            danger: 'bxs-hot',
+            info: 'bxs-info-circle'
+        };
+
+        modalBody.innerHTML = alerts.map(alert => `
+            <div class="alert-item alert-${alert.type}">
+                <div class="alert-item-icon"><i class='bx ${iconMap[alert.type] || 'bxs-info-circle'}'></i></div>
+                <div class="alert-item-content">
+                    <h4>${alert.title}</h4>
+                    <p>${alert.message}</p>
+                </div>
+            </div>
+        `).join('');
+        
+        badge.style.display = 'block';
+    }
+    
+    // ### NOVA FUNÇÃO PARA INICIALIZAR OS EVENTOS DO MODAL ###
+    function initializeAlertsModal() {
+        const modal = document.getElementById('alerts-modal-overlay');
+        const openBtn = document.getElementById('open-alerts-modal-btn');
+        const closeBtn = document.getElementById('close-alerts-modal-btn');
+        const badge = document.querySelector('#open-alerts-modal-btn .notification-badge');
+
+        if (!modal || !openBtn || !closeBtn || !badge) return;
+
+        const openModal = () => {
+            modal.classList.add('visible');
+            badge.style.display = 'none'; // Esconde o badge ao abrir o modal
+        };
+
+        const closeModal = () => modal.classList.remove('visible');
+
+        openBtn.addEventListener('click', openModal);
+        closeBtn.addEventListener('click', closeModal);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal();
+        });
+    }
+
     function updateKpiCards(data) {
         document.getElementById('kpi-vendas-hoje').textContent = formatCurrencyAbbreviated(data.vendas_hoje);
         document.getElementById('kpi-pedidos-hoje').textContent = data.pedidos_hoje;
@@ -116,28 +170,23 @@
         }
     }
 
-    // ### FUNÇÃO ALTERADA E OTIMIZADA ###
     async function loadDashboardData() {
-        // A verificação !document.hidden garante que as atualizações automáticas
-        // não ocorram se a aba do navegador não estiver visível.
         if (!document.hidden) {
             try {
-                // As pausas (delay) foram removidas. Com o backend otimizado,
-                // as chamadas podem ser feitas em paralelo para carregar o dashboard mais rápido.
-                const [kpiData, monthlyPerformance, metasProgressData] = await Promise.all([
+                const [kpiData, monthlyPerformance, metasProgressData, proactiveAlerts] = await Promise.all([
                     fazerRequisicaoAutenticada(`${API_BASE_URL}/dashboard/kpis`),
                     fazerRequisicaoAutenticada(`${API_BASE_URL}/dashboard/monthly-performance`),
-                    fazerRequisicaoAutenticada(`${API_BASE_URL}/dashboard/metas-progress`)
+                    fazerRequisicaoAutenticada(`${API_BASE_URL}/dashboard/metas-progress`),
+                    fazerRequisicaoAutenticada(`${API_BASE_URL}/alerts/proactive`)
                 ]);
 
-                // As funções de renderização são chamadas após a conclusão de todas as requisições.
                 if (kpiData) updateKpiCards(kpiData);
                 if (monthlyPerformance) renderMonthlyPerformanceChart(monthlyPerformance);
                 if (metasProgressData) renderMetasProgress(metasProgressData);
+                if (proactiveAlerts) renderProactiveAlerts(proactiveAlerts);
                 
             } catch (error) { 
                 console.error("Falha ao carregar dados do dashboard:", error); 
-                // A lógica de desativar o modo TV, se existir, é mantida.
                 if(tvModeInterval) deactivateTvMode();
             }
         }
@@ -146,6 +195,8 @@
     function initializeVendorSelection() {
         const modal = document.getElementById('vendor-select-modal-overlay');
         const openBtn = document.getElementById('select-vendors-btn');
+        if (!modal || !openBtn) return;
+        
         const cancelBtn = document.getElementById('cancel-vendor-select-btn');
         const closeBtn = document.getElementById('cancel-vendor-select-btn-close');
         const saveBtn = document.getElementById('save-vendor-select-btn');
@@ -208,6 +259,7 @@
     await loadTopVendorsChart();
     hideLoading();
     
+    initializeAlertsModal(); // ### INICIALIZAÇÃO DO MODAL ADICIONADA AQUI ###
     initializeTvModeControls();
     initializeVendorSelection();
 })();

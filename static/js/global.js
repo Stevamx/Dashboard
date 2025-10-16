@@ -72,7 +72,7 @@ function showConfirmationModal(title, message, confirmText = 'Confirmar', cancel
 }
 
 
-// --- FUNÇÕES GLOBAIS UNIVERSAIS ---
+// --- FUNÇÃO GLOBAL DE REQUISIÇÃO (ATUALIZADA) ---
 async function fazerRequisicaoAutenticada(url, options = {}) {
     const token = sessionStorage.getItem('firebaseIdToken');
     if (!token) {
@@ -81,7 +81,14 @@ async function fazerRequisicaoAutenticada(url, options = {}) {
         throw new Error("Sessão Expirada");
     }
     
+    // ### ALTERAÇÃO PRINCIPAL APLICADA AQUI ###
+    // Prepara os cabeçalhos, mas remove o Content-Type se o corpo for FormData,
+    // pois o navegador precisa definir isso automaticamente para uploads.
     const headers = { ...options.headers, 'Authorization': `Bearer ${token}` };
+    if (options.body instanceof FormData) {
+        delete headers['Content-Type'];
+    }
+
     const targetCompanyId = sessionStorage.getItem('targetCompanyId');
     if (targetCompanyId) {
         headers['X-Company-ID'] = targetCompanyId;
@@ -174,7 +181,6 @@ function showCompanySelectionModal() {
     });
 }
 
-
 async function showAllCompaniesModal() {
     const modal = document.getElementById('all-companies-modal-overlay');
     const listContainer = document.getElementById('all-companies-list');
@@ -183,7 +189,7 @@ async function showAllCompaniesModal() {
     if (!modal || !listContainer || !searchInput || !closeBtn) return;
 
     modal.classList.add('visible');
-    listContainer.innerHTML = '<div class="spinner"></div>';
+    listContainer.innerHTML = '<div class="spinner" style="margin: 40px auto;"></div>';
     
     try {
         const companies = await fazerRequisicaoAutenticada('/api/company/all');
@@ -205,7 +211,7 @@ async function showAllCompaniesModal() {
                     showLoading();
                     localStorage.setItem('savedCompanyId', company.cnpj);
                     sessionStorage.setItem('targetCompanyId', company.cnpj);
-                    window.location.href = '/login';
+                    window.location.href = '/login'; // Redireciona para o login para recarregar o contexto
                 });
                 listContainer.appendChild(item);
             });
@@ -231,11 +237,11 @@ async function showAllCompaniesModal() {
     });
 }
 
+
 function safeLogout() {
     localStorage.removeItem('savedCompanyId');
     sessionStorage.removeItem('firebaseIdToken');
     sessionStorage.removeItem('targetCompanyId');
-    sessionStorage.removeItem('showPanelSelection');
     
     if (typeof firebase !== 'undefined' && firebase.auth) {
         firebase.auth().signOut().then(() => {
@@ -250,40 +256,34 @@ function safeLogout() {
     }
 }
 
-// --- NOVA FUNÇÃO PARA O MODAL DE CONFIRMAÇÃO DE SAÍDA ---
 function showLogoutConfirmationModal() {
     const modal = document.getElementById('logout-confirmation-modal');
     if (!modal) {
-        // Fallback para caso o HTML do modal não exista
         if (confirm("Deseja realmente sair da sua conta?")) {
             safeLogout();
         }
         return;
     }
 
-    const switchPanelBtn = document.getElementById('logout-modal-switch-panel-btn');
+    const switchCompanyBtn = document.getElementById('logout-modal-switch-company-btn');
     const confirmBtn = document.getElementById('logout-modal-confirm-btn');
     const closeBtn = document.getElementById('logout-modal-close-btn');
 
     const closeModal = () => modal.classList.remove('visible');
 
-    // Função para voltar à seleção de painel
-    const handleSwitchPanel = () => {
+    const handleSwitchCompany = () => {
         closeModal();
-        showLoading();
-        window.location.href = '/login'; // Redireciona para a tela de login, que mostrará a seleção de painel
+        showAllCompaniesModal(); 
     };
 
-    // Função para sair da conta
     const handleConfirmLogout = () => {
         closeModal();
         safeLogout();
     };
 
-    // Limpa event listeners antigos para evitar duplicação
-    const cleanSwitchPanelBtn = switchPanelBtn.cloneNode(true);
-    switchPanelBtn.parentNode.replaceChild(cleanSwitchPanelBtn, switchPanelBtn);
-    cleanSwitchPanelBtn.addEventListener('click', handleSwitchPanel);
+    const cleanSwitchBtn = switchCompanyBtn.cloneNode(true);
+    switchCompanyBtn.parentNode.replaceChild(cleanSwitchBtn, switchCompanyBtn);
+    cleanSwitchBtn.addEventListener('click', handleSwitchCompany);
 
     const cleanConfirmBtn = confirmBtn.cloneNode(true);
     confirmBtn.parentNode.replaceChild(cleanConfirmBtn, confirmBtn);
@@ -292,7 +292,7 @@ function showLogoutConfirmationModal() {
     closeBtn.addEventListener('click', closeModal);
     modal.addEventListener('click', (e) => {
         if (e.target === modal) closeModal();
-    }, { once: true }); // Adiciona o listener de overlay apenas uma vez
+    }, { once: true });
 
     modal.classList.add('visible');
 }
@@ -302,7 +302,6 @@ function showLogoutConfirmationModal() {
 document.addEventListener('DOMContentLoaded', () => {
     const token = sessionStorage.getItem('firebaseIdToken');
     if (!token && !window.location.pathname.includes('/login')) {
-        sessionStorage.removeItem('showPanelSelection');
         window.location.href = '/login';
         return;
     }
@@ -321,12 +320,16 @@ document.addEventListener('DOMContentLoaded', () => {
             showLogoutConfirmationModal(); 
         }); 
     }
-
-    const changeCompanyBtn = document.getElementById('change-company-btn');
-    if (changeCompanyBtn) {
-        changeCompanyBtn.addEventListener('click', (e) => {
+    
+    const companyNameEl = document.getElementById('sidebar-company-name');
+    if (companyNameEl) {
+        companyNameEl.addEventListener('click', (e) => {
             e.preventDefault();
-            showAllCompaniesModal();
+            fazerRequisicaoAutenticada('/api/users/me').then(userData => {
+                if (userData && userData.is_superadmin) {
+                    showAllCompaniesModal();
+                }
+            }).catch(error => console.error("Não foi possível verificar o status de superadmin", error));
         });
     }
 
@@ -338,20 +341,16 @@ document.addEventListener('DOMContentLoaded', () => {
         notificationModal.addEventListener('click', (e) => { if (e.target === notificationModal) closeModal(); });
     }
 
-    // --- NOVO SCRIPT: BLOQUEIO DE ATALHOS DE ZOOM (CTRL +/-, Roda do Mouse) ---
-    // Este script impede o zoom nativo do navegador em desktops.
     window.addEventListener('keydown', (event) => {
-        // Bloqueia Ctrl + '+', Ctrl + '-', Ctrl + '0'
         if ((event.ctrlKey || event.metaKey) && ['+', '-', '0'].includes(event.key)) {
             event.preventDefault();
         }
     });
 
     window.addEventListener('wheel', (event) => {
-        // Bloqueia Ctrl + Roda do Mouse
         if (event.ctrlKey || event.metaKey) {
             event.preventDefault();
         }
-    }, { passive: false }); // 'passive: false' é necessário para que preventDefault() funcione no evento 'wheel'
+    }, { passive: false });
 
 });

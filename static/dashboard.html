@@ -2,7 +2,7 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Dashboard de Vendas</title>
     <link rel="stylesheet" href="/static/css/base.css?v=1.1">
     <link rel="stylesheet" href="/static/css/dashboard_layout.css?v=1.1">
@@ -18,10 +18,10 @@
                 <i class='bx bxs-bar-chart-alt-2'></i>
             </div>
             <span class="logo-text">Análises</span>
-            <div id="sidebar-company-name" class="sidebar-company">Carregando...</div>
+            <div id="sidebar-company-name" class="sidebar-company" title="Clique para trocar de empresa">Carregando...</div>
         </div>
         <div class="sidebar-main">
-            <a href="#" class="sidebar-link active" data-module="geral" data-access-key="dashboard" title="Dashboard">
+            <a href="#" class="sidebar-link active" data-module="geral" data-access-key="vendas" title="Dashboard">
                 <i class='bx bxs-dashboard'></i>
                 <span class="link-text">Dashboard</span>
             </a>
@@ -33,12 +33,20 @@
                 <i class='bx bxs-package'></i>
                 <span class="link-text">Estoque</span>
             </a>
-            <a href="#" class="sidebar-link" data-module="metas" data-access-key="metas" title="Metas">
+            <a href="#" class="sidebar-link" data-module="metas" data-access-key="vendas" title="Metas">
                 <i class='bx bx-target-lock'></i>
                 <span class="link-text">Metas</span>
             </a>
+            <a href="#" class="sidebar-link" data-module="chat" data-access-key="luca" title="Chat IA">
+                <i class='bx bxs-bot'></i>
+                <span class="link-text">Chat IA</span>
+            </a>
              <hr class="sidebar-divider">
-            <a href="#" id="sidebar-tv-mode-btn" class="sidebar-link-external" data-access-key="dashboard" title="Modo TV">
+            <a href="#" class="sidebar-link" data-module="configuracoes" data-access-key="configuracoes" title="Configurações">
+                <i class='bx bxs-cog'></i>
+                <span class="link-text">Configurações</span>
+            </a>
+            <a href="#" id="sidebar-tv-mode-btn" class="sidebar-link-external" data-access-key="vendas" title="Modo TV">
                 <i class='bx bx-tv'></i>
                 <span class="link-text">Modo TV</span>
             </a>
@@ -59,6 +67,12 @@
                 <i class='bx bx-menu'></i>
             </button>
             <div id="nav-placeholder"></div>
+            
+            <button id="open-alerts-modal-btn" class="header-button" title="Ver Alertas e Oportunidades">
+                <i class='bx bxs-bell'></i>
+                <span class="notification-badge"></span>
+            </button>
+
             <button id="open-tv-settings-btn" class="header-button" title="Configurar Modo TV">
                 <i class='bx bx-tv'></i>
             </button>
@@ -73,7 +87,69 @@
         <div class="spinner"></div>
     </div>
     
-    <div id="notification-modal-overlay" class="modal-overlay"> </div>
+    <div id="notification-modal-overlay" class="modal-overlay">
+        <div class="modal-content">
+            <div class="notification-header">
+                <div id="notification-icon" class="notification-icon"><i class='bx bx-info-circle'></i></div>
+                <h3 id="notification-title">Título da Notificação</h3>
+            </div>
+            <div id="notification-message" class="notification-body">Mensagem de exemplo.</div>
+            <div class="notification-footer">
+                <button id="notification-close-btn" class="modal-button primary">OK</button>
+            </div>
+        </div>
+    </div>
+    <div id="confirmation-modal-overlay" class="modal-overlay"></div>
+
+    <div id="alerts-modal-overlay" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Alertas e Oportunidades</h2>
+                <button id="close-alerts-modal-btn" class="close-button" title="Fechar">&times;</button>
+            </div>
+            <div id="alerts-modal-body" class="modal-body">
+                <p class="product-list-empty">Carregando...</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="edit-user-modal-overlay" class="modal-overlay">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h2>Editar Usuário</h2>
+                <button id="close-edit-modal-btn" class="close-button" title="Fechar">&times;</button>
+            </div>
+            <form id="edit-user-form" class="modal-body" novalidate>
+                <input type="hidden" id="edit-user-uid">
+                
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="edit-username">Nome Completo</label>
+                        <input type="text" id="edit-username" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-email">E-mail (não pode ser alterado)</label>
+                        <input type="email" id="edit-email" class="form-control" disabled>
+                    </div>
+                    <div class="form-group full-width">
+                        <label for="edit-role">Tipo de Permissão</label>
+                        <select id="edit-role" class="form-control">
+                            <option value="usuario">Usuário Padrão</option>
+                            <option value="admin">Administrador</option>
+                        </select>
+                        <p class="form-hint">Administradores têm acesso a todos os módulos e funcionalidades do sistema.</p>
+                    </div>
+                </div>
+
+                <div id="edit-access-groups" class="access-group-container">
+                    </div>
+            </form>
+            <div class="modal-footer">
+                <button id="cancel-edit-modal-btn" class="modal-button secondary">Cancelar</button>
+                <button type="submit" form="edit-user-form" class="modal-button primary">Salvar Alterações</button>
+            </div>
+        </div>
+    </div>
 
     <div id="logout-confirmation-modal" class="modal-overlay">
         <div class="modal-content" style="max-width: 450px;">
@@ -82,9 +158,9 @@
                 <button id="logout-modal-close-btn" class="close-button" title="Fechar">&times;</button>
             </div>
             <div class="modal-body" style="gap: 1rem;">
-                <button id="logout-modal-switch-panel-btn" class="modal-button secondary" style="width: 100%; justify-content: center; padding: 12px; font-size: 16px; gap: 8px;">
-                    <i class='bx bx-grid-alt' style="font-size: 20px;"></i>
-                    <span>Voltar para Seleção de Painel</span>
+                <button id="logout-modal-switch-company-btn" class="modal-button secondary" style="width: 100%; justify-content: center; padding: 12px; font-size: 16px; gap: 8px;">
+                    <i class='bx bxs-business' style="font-size: 20px;"></i>
+                    <span>Trocar Empresa</span>
                 </button>
                 <button id="logout-modal-confirm-btn" class="modal-button danger" style="width: 100%; justify-content: center; padding: 12px; font-size: 16px; gap: 8px;">
                     <i class='bx bx-log-out-circle' style="font-size: 20px;"></i>
@@ -93,6 +169,24 @@
             </div>
         </div>
     </div>
+    
+    <div id="all-companies-modal-overlay" class="modal-overlay">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h2>Selecionar Empresa</h2>
+                <button id="close-all-companies-modal-btn" class="close-button" title="Fechar">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="card-list-filter" style="margin-top: 0;">
+                    <i class='bx bx-search'></i>
+                    <input type="text" id="all-companies-search" placeholder="Pesquisar por nome ou CNPJ...">
+                </div>
+                <div class="product-list-container" id="all-companies-list" style="max-height: 60vh; margin-top: 1rem;">
+                    </div>
+            </div>
+        </div>
+    </div>
+
 
     <div id="tv-settings-modal-overlay" class="modal-overlay">
         <div class="modal-content large" style="max-width: 1200px;">
@@ -143,8 +237,7 @@
 
     <script src="/static/js/global.js?v=1.1" defer></script>
     <script src="/static/js/dashboard-utils.js?v=1.1" defer></script>
-    <script src="/static/js/dashboard-tv-settings.js?v=1.0" defer></script>
-    <script src="/static/js/dashboard-loader.js?v=1.1" defer></script>
-    
+    <script src="/static/js/dashboard-tv-settings.js?v=1.1" defer></script>
+    <script src="/static/js/dashboard-loader.js?v=1.4" defer></script> 
 </body>
 </html>

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Teste de Vozes - Text-to-Speech</title>
+    <style>
+        body { font-family: system-ui, sans-serif; padding: 2rem; background-color: #f4f7f9; }
+        .container { max-width: 600px; margin: auto; background-color: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        h1 { color: #333; }
+        textarea { width: 100%; min-height: 100px; padding: 10px; font-size: 1rem; border-radius: 4px; border: 1px solid #ccc; margin-bottom: 1rem; }
+        select { width: 100%; padding: 10px; font-size: 1rem; border-radius: 4px; border: 1px solid #ccc; margin-bottom: 1rem; }
+        button { background-color: #007bff; color: white; border: none; padding: 10px 20px; font-size: 1rem; border-radius: 4px; cursor: pointer; }
+        button:hover { background-color: #0056b3; }
+        label { font-weight: bold; margin-bottom: 0.5rem; display: block; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Ferramenta de Teste de Voz</h1>
+        <p>Use esta página para ouvir todas as vozes de leitura disponíveis no seu navegador e escolher a que soa melhor.</p>
+        
+        <label for="text-to-speak">Texto para Ler:</label>
+        <textarea id="text-to-speak">Olá, esta é uma demonstração da minha voz. Teste as diferentes opções para encontrar a mais agradável.</textarea>
+        
+        <label for="voice-select">Selecione uma Voz:</label>
+        <select id="voice-select"></select>
+        
+        <button id="speak-btn">Ouvir</button>
+    </div>
+
+    <script>
+        const textToSpeak = document.getElementById('text-to-speak');
+        const voiceSelect = document.getElementById('voice-select');
+        const speakBtn = document.getElementById('speak-btn');
+        let voices = [];
+
+        function populateVoiceList() {
+            voices = speechSynthesis.getVoices();
+            voiceSelect.innerHTML = ''; // Limpa a lista
+            
+            // Filtra para mostrar apenas as vozes em português primeiro
+            const ptVoices = voices.filter(voice => voice.lang.startsWith('pt'));
+            const otherVoices = voices.filter(voice => !voice.lang.startsWith('pt'));
+
+            ptVoices.forEach(voice => {
+                const option = document.createElement('option');
+                option.textContent = `${voice.name} (${voice.lang})`;
+                option.setAttribute('data-lang', voice.lang);
+                option.setAttribute('data-name', voice.name);
+                voiceSelect.appendChild(option);
+            });
+            
+            // Adiciona um separador
+            if (ptVoices.length > 0 && otherVoices.length > 0) {
+                 const separator = document.createElement('option');
+                 separator.disabled = true;
+                 separator.textContent = '--- Outras Línguas ---';
+                 voiceSelect.appendChild(separator);
+            }
+
+            otherVoices.forEach(voice => {
+                const option = document.createElement('option');
+                option.textContent = `${voice.name} (${voice.lang})`;
+                option.setAttribute('data-lang', voice.lang);
+                option.setAttribute('data-name', voice.name);
+                voiceSelect.appendChild(option);
+            });
+        }
+
+        populateVoiceList();
+        if (speechSynthesis.onvoiceschanged !== undefined) {
+            speechSynthesis.onvoiceschanged = populateVoiceList;
+        }
+
+        speakBtn.addEventListener('click', () => {
+            if (speechSynthesis.speaking) {
+                speechSynthesis.cancel();
+            }
+            const utterance = new SpeechSynthesisUtterance(textToSpeak.value);
+            const selectedOption = voiceSelect.selectedOptions[0];
+            const selectedVoiceName = selectedOption.getAttribute('data-name');
+            
+            const voiceToUse = voices.find(voice => voice.name === selectedVoiceName);
+            if(voiceToUse) {
+                utterance.voice = voiceToUse;
+            }
+            
+            speechSynthesis.speak(utterance);
+        });
+    </script>
+</body>
+</html>
